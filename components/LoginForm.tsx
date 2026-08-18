@@ -1,0 +1,5 @@
+"use client";
+import { FormEvent, useState } from "react";
+export default function LoginForm(){ const [error,setError]=useState(""); const [loading,setLoading]=useState(false);
+ async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();setError("");setLoading(true);const f=new FormData(e.currentTarget);try{const r=await fetch("/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({username:f.get("username"),password:f.get("password")})});const d=await r.json();if(!r.ok){setError(d.error||"Acceso rechazado");return;}window.location.href=d.redirect||"/portal";}catch{setError("No fue posible conectar con el servidor.");}finally{setLoading(false)}}
+ return <form className="loginForm" onSubmit={submit}><label>Usuario<input name="username" autoComplete="username" required /></label><label>Contraseña<input name="password" type="password" autoComplete="current-password" required /></label>{error&&<div className="errorBox">{error}</div>}<button className="primary" disabled={loading}>{loading?"Ingresando…":"Ingresar"}</button></form> }
