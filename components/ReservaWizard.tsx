@@ -58,7 +58,8 @@ export default function ReservaWizard() {
   const institucionNorm = institucion.trim().toLocaleLowerCase('es-CL');
   const esAlem = ['alemsi', 'alemsi paso fronterizo', 'alemsi administrativos'].includes(institucionNorm);
   const esCoordinador = institucionNorm === 'coordinadores';
-  const bloqueado = Boolean(perfil?.deudas.length);
+  const deudas = perfil?.deudas ?? [];
+  const bloqueado = deudas.length > 0;
 
   function resetError() { setError(''); }
 
@@ -188,7 +189,7 @@ export default function ReservaWizard() {
               <h3 className="font-extrabold text-[#0E2A23]">Nueva reserva bloqueada por pago pendiente</h3>
               <p className="mt-1 text-sm text-[#6B7570]">El bloqueo se libera cuando Finanzas deja el pago como Pagado.</p>
               <div className="mt-4 space-y-2">
-                {perfil.deudas.map((d) => (
+                {deudas.map((d) => (
                   <div key={d.referencia_reserva} className="rounded-xl bg-white p-3 text-sm">
                     <b>{d.referencia_reserva}</b> · {money(Number(d.monto_pendiente))} · {d.estados}
                   </div>
