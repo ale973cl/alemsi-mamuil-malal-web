@@ -1,0 +1,1 @@
+'use server'; import { cancelarServicio } from '@/lib/db/comensal-gestion'; import { revalidatePath } from 'next/cache'; export async function cancelarAction(fd:FormData){ await cancelarServicio(String(fd.get('rut')||''),Number(fd.get('id'))); revalidatePath('/mis-reservas'); }

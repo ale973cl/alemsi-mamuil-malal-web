@@ -1,2 +1,1 @@
-import ComensalClient from "./ComensalClient";
-export default function Comensal(){return <main className="publicPage"><header className="topbar"><div><b>ALEMSI</b><small>Servicios de Higiene y Desinfección</small></div><span>Sistema de reserva segura</span></header><section className="publicHero compact"><span>Complejo Fronterizo · Araucanía</span><h1>Reserva de Alimentación <em>Mamuil Malal</em></h1><p>Consulta y reserva día a día sobre la misma operación de ALEMSI.</p></section><div className="comensalContainer"><ComensalClient/></div></main>}
+import { redirect } from 'next/navigation'; export default function Page(){ redirect('/reserva'); }

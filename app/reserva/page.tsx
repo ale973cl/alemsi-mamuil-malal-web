@@ -16,7 +16,7 @@ export default function ReservaPage() {
           </span>
         </div>
       </header>
-      <ReservaWizard />
+      <div className="mx-auto max-w-6xl px-4 pt-5 sm:px-6"><div className="flex flex-wrap gap-2"><a href="/mis-reservas" className="rounded-lg border bg-white px-3 py-2 text-sm font-bold">Mis reservas</a><a href="/reclamos" className="rounded-lg border bg-white px-3 py-2 text-sm font-bold">Reclamos / sugerencias</a></div></div><ReservaWizard />
     </main>
   );
 }

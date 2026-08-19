@@ -1,0 +1,533 @@
+[
+  {
+    "file": "ALEMSI_v2.1.3.39_CIERRE_REVISION.zip",
+    "lines": 4558,
+    "functions": 63,
+    "key": {
+      "render_comensal": {
+        "lines": 645,
+        "sha": "66418edd9fec"
+      },
+      "render_coordinacion": {
+        "lines": 121,
+        "sha": "1fabbf41b9b2"
+      },
+      "render_casino": {
+        "lines": 1017,
+        "sha": "85b0bff86b31"
+      },
+      "render_admin": {
+        "lines": 1093,
+        "sha": "1c541de2c332"
+      },
+      "render_login_personal": {
+        "lines": 116,
+        "sha": "63871495135a"
+      },
+      "_cargar_demanda_produccion_fecha": {
+        "lines": 53,
+        "sha": "7aa1872f5392"
+      },
+      "_render_comprobante_finanzas": {
+        "lines": 35,
+        "sha": "f50fff5be7f9"
+      }
+    }
+  },
+  {
+    "file": "ALEMSI_v2.1.3.40_CIERRE_ARQUITECTURA_CORREGIDA.zip",
+    "lines": 4838,
+    "functions": 71,
+    "key": {
+      "render_comensal": {
+        "lines": 690,
+        "sha": "ad13815f70d4"
+      },
+      "render_coordinacion": {
+        "lines": 121,
+        "sha": "1fabbf41b9b2"
+      },
+      "render_casino": {
+        "lines": 977,
+        "sha": "6ae900bacdd1"
+      },
+      "render_admin": {
+        "lines": 1098,
+        "sha": "083f813fa66b"
+      },
+      "render_login_personal": {
+        "lines": 116,
+        "sha": "63871495135a"
+      },
+      "_cargar_demanda_produccion_fecha": {
+        "lines": 54,
+        "sha": "5bb91ba25d94"
+      },
+      "_render_comprobante_finanzas": {
+        "lines": 35,
+        "sha": "f50fff5be7f9"
+      }
+    }
+  },
+  {
+    "file": "ALEMSI_v2.1.3.40_COCINA_FINAL_PRESENTACION.zip",
+    "lines": 5326,
+    "functions": 77,
+    "key": {
+      "render_comensal": {
+        "lines": 721,
+        "sha": "442caaed503b"
+      },
+      "render_coordinacion": {
+        "lines": 121,
+        "sha": "1fabbf41b9b2"
+      },
+      "render_casino": {
+        "lines": 1044,
+        "sha": "1fd38590772a"
+      },
+      "render_admin": {
+        "lines": 1203,
+        "sha": "1609317bd418"
+      },
+      "render_login_personal": {
+        "lines": 116,
+        "sha": "63871495135a"
+      },
+      "_cargar_demanda_produccion_fecha": {
+        "lines": 54,
+        "sha": "5bb91ba25d94"
+      },
+      "_render_comprobante_finanzas": {
+        "lines": 35,
+        "sha": "f50fff5be7f9"
+      }
+    }
+  },
+  {
+    "file": "ALEMSI_v2.1.3.40_COORDINACION_CORREOS.zip",
+    "lines": 5698,
+    "functions": 84,
+    "key": {
+      "render_comensal": {
+        "lines": 721,
+        "sha": "442caaed503b"
+      },
+      "render_coordinacion": {
+        "lines": 177,
+        "sha": "ca8891b9abea"
+      },
+      "render_casino": {
+        "lines": 1044,
+        "sha": "623b46970fa5"
+      },
+      "render_admin": {
+        "lines": 1309,
+        "sha": "17b8a6ec8b5c"
+      },
+      "render_login_personal": {
+        "lines": 116,
+        "sha": "63871495135a"
+      },
+      "_cargar_demanda_produccion_fecha": {
+        "lines": 54,
+        "sha": "5bb91ba25d94"
+      },
+      "_enviar_minuta_coordinacion": {
+        "lines": 37,
+        "sha": "bef56553593f"
+      },
+      "_render_comprobante_finanzas": {
+        "lines": 35,
+        "sha": "f50fff5be7f9"
+      }
+    }
+  },
+  {
+    "file": "ALEMSI_v2.1.3.40_RC2_INTEGRADA.zip",
+    "lines": 5736,
+    "functions": 84,
+    "key": {
+      "render_comensal": {
+        "lines": 721,
+        "sha": "442caaed503b"
+      },
+      "render_coordinacion": {
+        "lines": 172,
+        "sha": "156e41869bb4"
+      },
+      "render_casino": {
+        "lines": 1064,
+        "sha": "c9fd9412c88e"
+      },
+      "render_admin": {
+        "lines": 1332,
+        "sha": "5b653202bbc6"
+      },
+      "render_login_personal": {
+        "lines": 116,
+        "sha": "63871495135a"
+      },
+      "_cargar_demanda_produccion_fecha": {
+        "lines": 54,
+        "sha": "5bb91ba25d94"
+      },
+      "_enviar_minuta_coordinacion": {
+        "lines": 37,
+        "sha": "bef56553593f"
+      },
+      "_render_comprobante_finanzas": {
+        "lines": 35,
+        "sha": "f50fff5be7f9"
+      }
+    }
+  },
+  {
+    "file": "ALEMSI_v2.1.3.40_RC3_ESTABILIZADA.zip",
+    "lines": 5777,
+    "functions": 84,
+    "key": {
+      "render_comensal": {
+        "lines": 721,
+        "sha": "442caaed503b"
+      },
+      "render_coordinacion": {
+        "lines": 180,
+        "sha": "9eba3fec505f"
+      },
+      "render_casino": {
+        "lines": 1079,
+        "sha": "5f85af802fbf"
+      },
+      "render_admin": {
+        "lines": 1350,
+        "sha": "7c731e407c69"
+      },
+      "render_login_personal": {
+        "lines": 116,
+        "sha": "63871495135a"
+      },
+      "_cargar_demanda_produccion_fecha": {
+        "lines": 54,
+        "sha": "5bb91ba25d94"
+      },
+      "_enviar_minuta_coordinacion": {
+        "lines": 37,
+        "sha": "bef56553593f"
+      },
+      "_render_comprobante_finanzas": {
+        "lines": 35,
+        "sha": "f50fff5be7f9"
+      }
+    }
+  },
+  {
+    "file": "ALEMSI_v2.1.3.41_RC4_MINUTAS_PERFILES.zip",
+    "lines": 6134,
+    "functions": 94,
+    "key": {
+      "render_comensal": {
+        "lines": 721,
+        "sha": "442caaed503b"
+      },
+      "render_coordinacion": {
+        "lines": 181,
+        "sha": "711c35bf164e"
+      },
+      "render_casino": {
+        "lines": 1061,
+        "sha": "1295e05d2254"
+      },
+      "render_admin": {
+        "lines": 1532,
+        "sha": "615179e1451f"
+      },
+      "render_login_personal": {
+        "lines": 116,
+        "sha": "63871495135a"
+      },
+      "_cargar_demanda_produccion_fecha": {
+        "lines": 54,
+        "sha": "5bb91ba25d94"
+      },
+      "_enviar_minuta_coordinacion": {
+        "lines": 37,
+        "sha": "bef56553593f"
+      },
+      "_render_comprobante_finanzas": {
+        "lines": 35,
+        "sha": "f50fff5be7f9"
+      }
+    }
+  },
+  {
+    "file": "ALEMSI_v2.1.3.42_RC5_PRUEBA.zip",
+    "lines": 6150,
+    "functions": 94,
+    "key": {
+      "render_comensal": {
+        "lines": 735,
+        "sha": "56ec1d21095d"
+      },
+      "render_coordinacion": {
+        "lines": 181,
+        "sha": "711c35bf164e"
+      },
+      "render_casino": {
+        "lines": 1061,
+        "sha": "1295e05d2254"
+      },
+      "render_admin": {
+        "lines": 1530,
+        "sha": "783db05ef663"
+      },
+      "render_login_personal": {
+        "lines": 116,
+        "sha": "63871495135a"
+      },
+      "_cargar_demanda_produccion_fecha": {
+        "lines": 54,
+        "sha": "5bb91ba25d94"
+      },
+      "_enviar_minuta_coordinacion": {
+        "lines": 37,
+        "sha": "bef56553593f"
+      },
+      "_render_comprobante_finanzas": {
+        "lines": 35,
+        "sha": "f50fff5be7f9"
+      }
+    }
+  },
+  {
+    "file": "ALEMSI_v2.1.3.43_RC6_CORREGIDA.zip",
+    "lines": 6194,
+    "functions": 95,
+    "key": {
+      "render_comensal": {
+        "lines": 744,
+        "sha": "4599a0156057"
+      },
+      "render_coordinacion": {
+        "lines": 181,
+        "sha": "711c35bf164e"
+      },
+      "render_casino": {
+        "lines": 1061,
+        "sha": "58fe09030af9"
+      },
+      "render_admin": {
+        "lines": 1530,
+        "sha": "b45fd9f262ca"
+      },
+      "render_login_personal": {
+        "lines": 116,
+        "sha": "63871495135a"
+      },
+      "_cargar_demanda_produccion_fecha": {
+        "lines": 54,
+        "sha": "5bb91ba25d94"
+      },
+      "_enviar_minuta_coordinacion": {
+        "lines": 37,
+        "sha": "bef56553593f"
+      },
+      "_render_comprobante_finanzas": {
+        "lines": 35,
+        "sha": "f50fff5be7f9"
+      }
+    }
+  },
+  {
+    "file": "ALEMSI_v2.1.3.44_RC7_MINUTAS_RESTAURADAS.zip",
+    "lines": 6179,
+    "functions": 95,
+    "key": {
+      "render_comensal": {
+        "lines": 744,
+        "sha": "4599a0156057"
+      },
+      "render_coordinacion": {
+        "lines": 181,
+        "sha": "711c35bf164e"
+      },
+      "render_casino": {
+        "lines": 1061,
+        "sha": "58fe09030af9"
+      },
+      "render_admin": {
+        "lines": 1515,
+        "sha": "2f89952f04ba"
+      },
+      "render_login_personal": {
+        "lines": 116,
+        "sha": "63871495135a"
+      },
+      "_cargar_demanda_produccion_fecha": {
+        "lines": 54,
+        "sha": "5bb91ba25d94"
+      },
+      "_enviar_minuta_coordinacion": {
+        "lines": 37,
+        "sha": "bef56553593f"
+      },
+      "_render_comprobante_finanzas": {
+        "lines": 35,
+        "sha": "f50fff5be7f9"
+      }
+    }
+  },
+  {
+    "file": "ALEMSI_v2.1.3.45_RC8_CIRCUITOS_FUNCIONALES.zip",
+    "lines": 6370,
+    "functions": 103,
+    "key": {
+      "render_comensal": {
+        "lines": 814,
+        "sha": "ba92e8901ede"
+      },
+      "render_coordinacion": {
+        "lines": 181,
+        "sha": "711c35bf164e"
+      },
+      "render_casino": {
+        "lines": 1061,
+        "sha": "58fe09030af9"
+      },
+      "render_admin": {
+        "lines": 1567,
+        "sha": "838f0575fcbc"
+      },
+      "render_login_personal": {
+        "lines": 116,
+        "sha": "63871495135a"
+      },
+      "_cargar_demanda_produccion_fecha": {
+        "lines": 54,
+        "sha": "5bb91ba25d94"
+      },
+      "_reglas_reserva": {
+        "lines": 12,
+        "sha": "4398137ce83b"
+      },
+      "_reserva_comercial_habilitada": {
+        "lines": 4,
+        "sha": "4aafa5a03738"
+      },
+      "_cancelacion_directa_habilitada": {
+        "lines": 4,
+        "sha": "e1eb983c94e4"
+      },
+      "_enviar_minuta_coordinacion": {
+        "lines": 37,
+        "sha": "bef56553593f"
+      },
+      "_render_comprobante_finanzas": {
+        "lines": 35,
+        "sha": "f50fff5be7f9"
+      }
+    }
+  },
+  {
+    "file": "ALEMSI_v2.1.3.45_RC8_FAST_CALENDARIO.zip",
+    "lines": 6402,
+    "functions": 103,
+    "key": {
+      "render_comensal": {
+        "lines": 840,
+        "sha": "992ecd5b0cc1"
+      },
+      "render_coordinacion": {
+        "lines": 181,
+        "sha": "711c35bf164e"
+      },
+      "render_casino": {
+        "lines": 1061,
+        "sha": "58fe09030af9"
+      },
+      "render_admin": {
+        "lines": 1568,
+        "sha": "dba2363e9365"
+      },
+      "render_login_personal": {
+        "lines": 116,
+        "sha": "63871495135a"
+      },
+      "_cargar_demanda_produccion_fecha": {
+        "lines": 54,
+        "sha": "5bb91ba25d94"
+      },
+      "_reglas_reserva": {
+        "lines": 16,
+        "sha": "cd50286c05c2"
+      },
+      "_reserva_comercial_habilitada": {
+        "lines": 4,
+        "sha": "4aafa5a03738"
+      },
+      "_cancelacion_directa_habilitada": {
+        "lines": 4,
+        "sha": "e1eb983c94e4"
+      },
+      "_enviar_minuta_coordinacion": {
+        "lines": 37,
+        "sha": "bef56553593f"
+      },
+      "_render_comprobante_finanzas": {
+        "lines": 35,
+        "sha": "f50fff5be7f9"
+      }
+    }
+  },
+  {
+    "file": "ALEMSI_v2.1.3.46_RC9_PRESENTACION_ESTABLE.zip",
+    "lines": 6341,
+    "functions": 109,
+    "key": {
+      "render_comensal": {
+        "lines": 814,
+        "sha": "92951c7b5179"
+      },
+      "render_coordinacion": {
+        "lines": 106,
+        "sha": "03c9a02bbaa6"
+      },
+      "render_casino": {
+        "lines": 1048,
+        "sha": "5ffee6bfbe88"
+      },
+      "render_admin": {
+        "lines": 1552,
+        "sha": "933f8d4f098f"
+      },
+      "render_login_personal": {
+        "lines": 116,
+        "sha": "63871495135a"
+      },
+      "_cargar_demanda_produccion_fecha": {
+        "lines": 54,
+        "sha": "5bb91ba25d94"
+      },
+      "_reglas_reserva": {
+        "lines": 12,
+        "sha": "4398137ce83b"
+      },
+      "_reserva_comercial_habilitada": {
+        "lines": 4,
+        "sha": "4aafa5a03738"
+      },
+      "_cancelacion_directa_habilitada": {
+        "lines": 4,
+        "sha": "e1eb983c94e4"
+      },
+      "_enviar_minuta_coordinacion": {
+        "lines": 37,
+        "sha": "bef56553593f"
+      },
+      "_render_comprobante_finanzas": {
+        "lines": 35,
+        "sha": "f50fff5be7f9"
+      }
+    }
+  }
+]

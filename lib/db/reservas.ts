@@ -174,7 +174,7 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
 
       if (existente) {
         const exception = Number(reglas.excepciones_habilitadas) === 1 && (await excepcionReservaActiva(rut, item.fecha));
-        if (!exception && !reservaComercialHabilitada(item.fecha, item.servicio, 48)) {
+        if (!exception && !reservaComercialHabilitada(item.fecha, item.servicio, Number(reglas.anticipacion_reserva_horas))) {
           throw new Error(`${item.servicio} del ${item.fecha} ya no puede modificarse porque faltan menos de 48 horas.`);
         }
       }

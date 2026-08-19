@@ -1,0 +1,26 @@
+[
+  {
+    "name": "RUT inválido rechazado",
+    "ok": true
+  },
+  {
+    "name": "RUT real válido",
+    "ok": true
+  },
+  {
+    "name": "Normalización PostgreSQL",
+    "ok": true
+  },
+  {
+    "name": "Máximo consecutivo",
+    "ok": true
+  },
+  {
+    "name": "Distribución precio conserva total",
+    "ok": true
+  },
+  {
+    "name": "ALEMSI Paso identificado interno",
+    "ok": true
+  }
+]
