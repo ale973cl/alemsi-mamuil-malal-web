@@ -1,10 +1,13 @@
 import 'server-only';
 import { query } from '@/lib/db/pool';
 import type { Rol, SessionUser } from '@/lib/auth/session';
-import { esRolInterno, hashPasswordHistorico } from '@/lib/auth/core';
+import { auditarSinBloquearLogin, esRolInterno, hashPasswordHistorico, SQL_AUDITORIA_ACCESO } from '@/lib/auth/core';
 export const hashPwd=hashPasswordHistorico;
 export async function registrarAcceso(usuario:string,accion:'LOGIN_EXITOSO'|'LOGIN_FALLIDO'|'LOGOUT',detalle=''){
-  await query(`INSERT INTO auditoria_acciones (fecha,usuario,accion,tabla,registro_id,valor_anterior,valor_nuevo,detalle) VALUES ($1,$2,$3,'usuarios',$2,'',$4,$5)`,[new Date().toISOString(),usuario||'desconocido',accion,accion,detalle]);
+  await auditarSinBloquearLogin(
+    ()=>query(SQL_AUDITORIA_ACCESO,[new Date().toISOString(),usuario||'desconocido',accion,detalle]),
+    error=>console.error('ALEMSI auditoría de acceso:',error),
+  );
 }
 export async function authenticate(username:string,password:string):Promise<SessionUser|null>{
   const normalized=username.trim();
