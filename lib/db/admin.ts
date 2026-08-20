@@ -7,7 +7,6 @@ export async function getReglas(){
 }
 export async function setReglas(v:any,u:string){
   await inTransaction(async c=>{
-    await c.query(`CREATE TABLE IF NOT EXISTS configuracion_reservas (id INTEGER PRIMARY KEY DEFAULT 1,anticipacion_reserva_horas INTEGER DEFAULT 48,cancelacion_directa_horas INTEGER DEFAULT 24,max_dias_consecutivos INTEGER DEFAULT 7,excepciones_habilitadas INTEGER DEFAULT 1)`);
     await c.query(`INSERT INTO configuracion_reservas (id,anticipacion_reserva_horas,cancelacion_directa_horas,max_dias_consecutivos,excepciones_habilitadas) VALUES (1,$1,$2,$3,$4) ON CONFLICT (id) DO UPDATE SET anticipacion_reserva_horas=EXCLUDED.anticipacion_reserva_horas,cancelacion_directa_horas=EXCLUDED.cancelacion_directa_horas,max_dias_consecutivos=EXCLUDED.max_dias_consecutivos,excepciones_habilitadas=EXCLUDED.excepciones_habilitadas`,[v.a,v.c,v.m,v.e]);
     await c.query(`INSERT INTO auditoria_acciones (fecha,usuario,accion,tabla,registro_id,valor_anterior,valor_nuevo,detalle) VALUES ($1,$2,'ACTUALIZAR_REGLAS_RESERVA','configuracion_reservas','1','',$3,'')`,[new Date().toISOString(),u,JSON.stringify(v)]);
   });
@@ -36,7 +35,6 @@ export async function guardarMinuta(v:{id?:number;fecha:string;servicio:string;t
 }
 export async function enviarCoordinacion(inicio:string,fin:string,u:string){
   return inTransaction(async c=>{
-    await c.query(`CREATE TABLE IF NOT EXISTS minuta_flujo_coordinacion (id SERIAL PRIMARY KEY,fecha_desde TEXT NOT NULL,fecha_hasta TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 1,estado TEXT NOT NULL DEFAULT 'EN_REVISION',observacion TEXT,enviado_por TEXT,enviado_at TEXT,coordinador TEXT,coordinacion_at TEXT,activo INTEGER DEFAULT 1)`);
     const prev=await c.query<{version:number}>(`SELECT version FROM minuta_flujo_coordinacion WHERE fecha_desde=$1 AND fecha_hasta=$2 AND COALESCE(activo,1)=1 ORDER BY version DESC,id DESC LIMIT 1`,[inicio,fin]);
     const version=Number(prev.rows[0]?.version||0)+1;
     await c.query(`INSERT INTO minuta_flujo_coordinacion (fecha_desde,fecha_hasta,version,estado,observacion,enviado_por,enviado_at,activo) VALUES ($1,$2,$3,'EN_REVISION','',$4,$5,1)`,[inicio,fin,version,u,new Date().toISOString()]);

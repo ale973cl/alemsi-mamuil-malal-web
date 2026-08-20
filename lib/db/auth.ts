@@ -1,6 +1,19 @@
 import 'server-only';
-import crypto from 'node:crypto';
 import { query } from '@/lib/db/pool';
 import type { Rol, SessionUser } from '@/lib/auth/session';
-export function hashPwd(value:string){ return crypto.createHash('sha256').update(value).digest('hex'); }
-export async function authenticate(username:string,password:string):Promise<SessionUser|null>{ const rows=await query<{username:string;rol:Rol;nombre:string;correo:string|null;activo:number}>(`SELECT username,rol,nombre,correo,COALESCE(activo,1) activo FROM usuarios WHERE LOWER(username)=LOWER($1) AND pwd=$2 LIMIT 1`,[username.trim(),hashPwd(password)]); const u=rows[0]; if(!u||Number(u.activo)!==1) return null; return {username:u.username,nombre:u.nombre||u.username,rol:u.rol,correo:u.correo||undefined}; }
+import { auditarSinBloquearLogin, esRolInterno, hashPasswordHistorico, SQL_AUDITORIA_ACCESO } from '@/lib/auth/core';
+export const hashPwd=hashPasswordHistorico;
+export async function registrarAcceso(usuario:string,accion:'LOGIN_EXITOSO'|'LOGIN_FALLIDO'|'LOGOUT',detalle=''){
+  await auditarSinBloquearLogin(
+    ()=>query(SQL_AUDITORIA_ACCESO,[new Date().toISOString(),usuario||'desconocido',accion,detalle]),
+    error=>console.error('ALEMSI auditoría de acceso:',error),
+  );
+}
+export async function authenticate(username:string,password:string):Promise<SessionUser|null>{
+  const normalized=username.trim();
+  const rows=await query<{username:string;rol:string;nombre:string;correo:string|null;activo:number;debe_cambiar_password:number}>(`SELECT username,rol,nombre,correo,COALESCE(activo,1) activo,COALESCE(debe_cambiar_password,0) debe_cambiar_password FROM usuarios WHERE LOWER(username)=LOWER($1) AND pwd=$2 LIMIT 1`,[normalized,hashPwd(password)]);
+  const u=rows[0];
+  if(!u||Number(u.activo)!==1||!esRolInterno(u.rol)){ await registrarAcceso(normalized,'LOGIN_FALLIDO','Credenciales, estado o rol no válidos'); return null; }
+  await registrarAcceso(u.username,'LOGIN_EXITOSO',`rol=${u.rol}`);
+  return {username:u.username,nombre:u.nombre||u.username,rol:u.rol as Rol,correo:u.correo||undefined,debeCambiarPassword:Number(u.debe_cambiar_password)===1};
+}
