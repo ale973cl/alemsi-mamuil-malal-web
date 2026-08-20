@@ -5,6 +5,13 @@ export type RolInterno=typeof ROLES_INTERNOS[number];
 export function esRolInterno(value:unknown):value is RolInterno{return typeof value==='string'&&(ROLES_INTERNOS as readonly string[]).includes(value);}
 export function hashPasswordHistorico(value:string){return crypto.createHash('sha256').update(value).digest('hex');}
 export function usuarioActivo(value:unknown){return Number(value)===1;}
+export function resolverSecretoSesion(env:Partial<Record<'SESSION_SECRET'|'DATABASE_URL',string|undefined>>){
+  const configurado=env.SESSION_SECRET?.trim();
+  if(configurado) return configurado;
+  const databaseUrl=env.DATABASE_URL?.trim();
+  if(!databaseUrl) throw new Error('SESSION_SECRET y DATABASE_URL no configuradas.');
+  return crypto.createHash('sha256').update(`ALEMSI_SESSION_V1\0${databaseUrl}`).digest('base64url');
+}
 export const SQL_AUDITORIA_ACCESO='INSERT INTO auditoria_acciones (fecha,usuario,accion,detalle) VALUES ($1,$2,$3,$4)';
 export async function auditarSinBloquearLogin(escribir:()=>Promise<unknown>,reportar:(error:unknown)=>void=console.error){
   try{await escribir();}catch(error){reportar(error);}

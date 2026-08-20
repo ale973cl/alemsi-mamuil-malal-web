@@ -2,12 +2,12 @@ import 'server-only';
 import crypto from 'node:crypto';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { normalizarSesion, type RolInterno } from '@/lib/auth/core';
+import { normalizarSesion, resolverSecretoSesion, type RolInterno } from '@/lib/auth/core';
 
 export type Rol = RolInterno;
 export type SessionUser = { username:string; nombre:string; rol:Rol; correo?:string; debeCambiarPassword:boolean };
 const COOKIE='alemsi_session';
-function secret(){ const s=process.env.SESSION_SECRET?.trim(); if(!s) throw new Error('SESSION_SECRET no configurada.'); return s; }
+function secret(){ return resolverSecretoSesion({SESSION_SECRET:process.env.SESSION_SECRET,DATABASE_URL:process.env.DATABASE_URL}); }
 function sign(payload:string){ return crypto.createHmac('sha256',secret()).update(payload).digest('base64url'); }
 export async function setSession(user:SessionUser){ const body=Buffer.from(JSON.stringify(user)).toString('base64url'); const value=`${body}.${sign(body)}`; (await cookies()).set(COOKIE,value,{httpOnly:true,secure:process.env.NODE_ENV==='production',sameSite:'lax',path:'/',maxAge:60*60*10}); }
 export async function clearSession(){ (await cookies()).delete(COOKIE); }
