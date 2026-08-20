@@ -35,6 +35,9 @@ export async function guardarComprobanteEnPostgres(input: {
   bytes: Uint8Array;
 }) {
   await inTransaction(async (client) => {
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`COMPROBANTE|${input.token}`]);
+    const existente=await client.query(`SELECT id FROM comprobantes_pago WHERE pago_token=$1 LIMIT 1 FOR UPDATE`,[input.token]);
+    if(existente.rows[0]) return;
     await client.query(
       `INSERT INTO comprobantes_pago
         (referencia_reserva,pago_token,rut,nombre_archivo,mime_type,contenido,fecha_carga,estado,storage_provider)
