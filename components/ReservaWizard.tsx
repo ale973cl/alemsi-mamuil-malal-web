@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import { cargarMinutaDisponible, confirmarReserva, identificarComensal } from '@/app/reserva/actions';
 import type { EleccionReserva } from '@/lib/reglas/reserva';
+import { fechaAgregable } from '@/lib/reglas/calendario';
 
 type Perfil = Awaited<ReturnType<typeof identificarComensal>>;
 type Minuta = Awaited<ReturnType<typeof cargarMinutaDisponible>>;
@@ -11,19 +12,15 @@ type Etapa = 'rut' | 'fechas' | 'dia' | 'revision' | 'resultado';
 
 const ordenarServicios = ['Desayuno', 'Almuerzo', 'Once', 'Cena'];
 
-function isoHoy() {
-  const d = new Date();
+function isoFecha(d:Date) {
   const p = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-function mesActual() {
+function rangoReserva() {
   const d = new Date();
-  const p = (n: number) => String(n).padStart(2, '0');
-  const first = `${d.getFullYear()}-${p(d.getMonth() + 1)}-01`;
-  const lastD = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-  const last = `${lastD.getFullYear()}-${p(lastD.getMonth() + 1)}-${p(lastD.getDate())}`;
-  return { first, last };
+  const lastD = new Date(d); lastD.setDate(lastD.getDate()+61);
+  return { first:isoFecha(d), last:isoFecha(lastD) };
 }
 
 function fechaVisible(iso: string) {
@@ -60,6 +57,7 @@ export default function ReservaWizard() {
   const esCoordinador = institucionNorm === 'coordinadores';
   const deudas = perfil?.deudas ?? [];
   const bloqueado = deudas.length > 0;
+  const maxConsecutivos=!esAlem&&!esCoordinador?Number(minuta?.reglas.max_dias_consecutivos||0):Number.MAX_SAFE_INTEGER;
 
   function resetError() { setError(''); }
 
@@ -73,7 +71,7 @@ export default function ReservaWizard() {
         setEtapa('fechas');
         return;
       }
-      const { first, last } = mesActual();
+      const { first, last } = rangoReserva();
       const menu = await cargarMinutaDisponible(response.persona.rut, first, last);
       if (!menu.ok) return setError(menu.error);
       setMinuta(menu);
@@ -82,7 +80,7 @@ export default function ReservaWizard() {
   }
 
   function toggleFecha(fecha: string) {
-    setFechas((current) => current.includes(fecha) ? current.filter((x) => x !== fecha) : [...current, fecha].sort());
+    setFechas((current) => current.includes(fecha) ? current.filter((x) => x !== fecha) : fechaAgregable(current,fecha,maxConsecutivos) ? [...current, fecha].sort() : current);
   }
 
   function key(fecha: string, servicio: string) { return `${fecha}|${servicio}`; }
@@ -210,15 +208,16 @@ export default function ReservaWizard() {
               <div className="mt-5 grid grid-cols-4 gap-2 sm:grid-cols-7 md:grid-cols-10">
                 {fechasDisponibles.map((fecha) => {
                   const active = fechas.includes(fecha);
+                  const enabled = active || fechaAgregable(fechas,fecha,maxConsecutivos);
                   return (
-                    <button key={fecha} onClick={() => toggleFecha(fecha)} className={`min-h-16 rounded-xl border p-2 text-center transition ${active ? 'border-[#1DB954] bg-[#1DB954] text-[#071814]' : 'border-[#A6B0AA]/55 bg-white text-[#0E2A23] hover:border-[#1DB954]'}`}>
+                    <button key={fecha} disabled={!enabled} title={enabled?'Fecha reservable':`Máximo ${maxConsecutivos} días consecutivos`} onClick={() => toggleFecha(fecha)} className={`min-h-16 rounded-xl border p-2 text-center transition ${active ? 'border-[#1DB954] bg-[#1DB954] text-[#071814]' : enabled ? 'border-[#A6B0AA]/55 bg-white text-[#0E2A23] hover:border-[#1DB954]' : 'cursor-not-allowed border-[#A6B0AA]/25 bg-[#A6B0AA]/10 text-[#A6B0AA]'}`}>
                       <span className="block text-[10px] font-bold uppercase opacity-70">{new Date(`${fecha}T12:00:00`).toLocaleDateString('es-CL', { weekday: 'short' })}</span>
                       <strong className="text-lg">{fecha.slice(-2)}</strong>
                     </button>
                   );
                 })}
               </div>
-              {!fechasDisponibles.length && <p className="mt-5 rounded-xl bg-[#A6B0AA]/10 p-4 text-sm text-[#6B7570]">No hay fechas publicadas y habilitadas en el mes actual.</p>}
+              {!fechasDisponibles.length && <p className="mt-5 rounded-xl bg-[#A6B0AA]/10 p-4 text-sm text-[#6B7570]">No hay fechas con minuta y servicios reservables disponibles.</p>}
               <div className="mt-6 flex justify-end">
                 <button onClick={continuarFechas} disabled={!fechas.length} className="min-h-12 rounded-xl bg-[#1DB954] px-6 font-extrabold text-[#071814] disabled:opacity-40">Continuar con {fechas.length || 0} día(s)</button>
               </div>

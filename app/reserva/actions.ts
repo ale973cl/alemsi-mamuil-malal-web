@@ -2,11 +2,12 @@
 
 import { obtenerComensal, obtenerPrecioPersona } from '@/lib/db/comensales';
 import { obtenerMinutasRango } from '@/lib/db/minutas';
+import { filtrarMinutaReservable } from '@/lib/reglas/calendario';
 import { crearOActualizarReserva, obtenerDeudaBloqueante, obtenerReglasReserva } from '@/lib/db/reservas';
 import {
   normalizarRutDb,
   normalizarRutVisible,
-  reservaComercialHabilitada,
+  fechaActualIso,
   tipoInstitucion,
   validarRutM11,
   type EleccionReserva,
@@ -33,20 +34,12 @@ export async function cargarMinutaDisponible(rutInput: string, inicio: string, f
   const perfil = await identificarComensal(rutInput);
   if (!perfil.ok) return perfil;
   const reglas = await obtenerReglasReserva();
-  const rows = await obtenerMinutasRango(inicio, fin);
-  const tipo = tipoInstitucion(perfil.persona.institucion);
-
-  const filtradas = rows.filter((row) => {
-    if (tipo === 'administrativos' && row.servicio !== 'Almuerzo') return false;
-    if (tipo === 'paso') {
-      const tipoOpcion = String(row.tipo_opcion ?? '').trim().toUpperCase();
-      if (!['OPCION 1', 'HIPOCALORICO'].includes(tipoOpcion)) return false;
-    }
-    if (tipo === 'comercial' && !reservaComercialHabilitada(row.fecha, row.servicio, Number(reglas.anticipacion_reserva_horas))) {
-      return false;
-    }
-    return true;
-  });
+  const hoy=fechaActualIso();
+  const max=new Date(`${hoy}T12:00:00Z`);max.setUTCDate(max.getUTCDate()+61);const limite=max.toISOString().slice(0,10);
+  const desde=inicio<hoy?hoy:inicio; const hasta=fin>limite?limite:fin;
+  if(desde>hasta) return {ok:true as const,rows:[],reglas};
+  const rows = await obtenerMinutasRango(desde, hasta);
+  const filtradas = filtrarMinutaReservable(rows,perfil.persona.institucion,reglas);
 
   return { ok: true as const, rows: filtradas, reglas };
 }
