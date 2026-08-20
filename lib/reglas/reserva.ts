@@ -99,6 +99,10 @@ function fechaHoraServicioEpoch(fechaIso: string, servicio: string, timeZone = '
   return zonedEpoch(year, month, day, hora, 0, timeZone);
 }
 
+export function fechaActualIso(ahora = new Date(), timeZone = 'America/Santiago'): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone, year:'numeric', month:'2-digit', day:'2-digit' }).format(ahora);
+}
+
 export function reservaComercialHabilitada(
   fechaIso: string,
   servicio: string,

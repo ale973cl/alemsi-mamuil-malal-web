@@ -4,7 +4,9 @@ Port de circuito **Comensal → Reserva → PostgreSQL → Comprobante** desde e
 
 ## Variables
 
-Copiar `.env.example` a `.env.local` para desarrollo y configurar `DATABASE_URL` en Vercel para Preview/Production.
+Copiar `.env.example` a `.env.local` para desarrollo y configurar `DATABASE_URL` y `SESSION_SECRET` en Vercel para Preview/Production. Ambas variables son exclusivamente server-side y nunca deben usar el prefijo `NEXT_PUBLIC_`.
+
+Antes de habilitar módulos que escriben datos, revisar y ejecutar manualmente `migrations/001_p0_runtime_schema.sql` sobre una réplica. La aplicación no ejecuta DDL durante requests.
 
 ## Desarrollo
 
@@ -17,6 +19,7 @@ npm run dev
 
 ```bash
 npm run typecheck
+npm test
 npm run build
 ```
 

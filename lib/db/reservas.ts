@@ -7,6 +7,7 @@ import { validarPlatoPublicado } from '@/lib/db/minutas';
 import {
   REGLAS_RESERVA_DEFAULT,
   distribuirPrecioDia,
+  fechaActualIso,
   limpiarRut,
   maxConsecutivosFechas,
   normalizarRutDb,
@@ -46,6 +47,7 @@ export async function obtenerDeudaBloqueante(rut: string) {
             STRING_AGG(DISTINCT COALESCE(NULLIF(TRIM(estado_pago),''),'Pendiente'), ', ') AS estados
        FROM solicitudes
       WHERE rut=$1
+        AND fecha < $2
         AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA'
         AND COALESCE(precio_aplicado,precio,0)>0
         AND COALESCE(tipo_registro,'RESERVA_COMERCIAL')='RESERVA_COMERCIAL'
@@ -53,7 +55,7 @@ export async function obtenerDeudaBloqueante(rut: string) {
             ('pagado','no aplica','costo asumido','costo asumido / no cobrable')
       GROUP BY referencia_reserva
       ORDER BY MIN(fecha),referencia_reserva`,
-    [normalizarRutDb(rut)],
+    [normalizarRutDb(rut), fechaActualIso()],
   );
 }
 
@@ -152,8 +154,8 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
 
   const precioPersona = await obtenerPrecioPersona(rut, institucion);
   let referencia = referenciaReserva(rut);
-  const codigoPublico = await codigoReservaPublico();
-  const pagoToken = !esAlem && !esCoordinador ? crypto.randomBytes(32).toString('base64url') : '';
+  let codigoPublico = await codigoReservaPublico();
+  let pagoToken = !esAlem && !esCoordinador ? crypto.randomBytes(32).toString('base64url') : '';
   const ahora = new Date().toISOString();
   const metodo = esAlem
     ? 'Interno ALEMSI'
@@ -167,15 +169,23 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
   }
 
   await inTransaction(async (client) => {
+    const claveSolicitud=input.elecciones.map(x=>`${x.fecha}|${x.servicio}|${x.plato}`).sort().join(';');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))',[`RESERVA|${rut}|${claveSolicitud}`]);
+    const previa=await client.query<{referencia_reserva:string;codigo_reserva:string|null;pago_token:string|null}>(`SELECT referencia_reserva,codigo_reserva,pago_token FROM solicitudes WHERE rut=$1 AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA' AND fecha=ANY($2::text[]) ORDER BY id DESC LIMIT 1 FOR UPDATE`,[rut,fechas]);
+    if(previa.rows[0]?.referencia_reserva) referencia=previa.rows[0].referencia_reserva;
+    if(previa.rows[0]?.codigo_reserva) codigoPublico=previa.rows[0].codigo_reserva;
     for (const item of input.elecciones) {
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${rut}|${item.fecha}|${item.servicio}`]);
       const existente = await filaExistente(client, rut, item);
       if (existente?.referencia_reserva) referencia = existente.referencia_reserva;
 
+      const publicada=await client.query(`SELECT id FROM minutas WHERE activo=1 AND COALESCE(estado,'PUBLICABLE')='PUBLICABLE' AND fecha=$1 AND servicio=$2 AND plato=$3 LIMIT 1 FOR SHARE`,[item.fecha,item.servicio,item.plato]);
+      if(!publicada.rows[0]) throw new Error(`El plato ${item.plato} ya no está disponible para ${item.fecha} · ${item.servicio}.`);
+
       if (existente) {
         const exception = Number(reglas.excepciones_habilitadas) === 1 && (await excepcionReservaActiva(rut, item.fecha));
         if (!exception && !reservaComercialHabilitada(item.fecha, item.servicio, Number(reglas.anticipacion_reserva_horas))) {
-          throw new Error(`${item.servicio} del ${item.fecha} ya no puede modificarse porque faltan menos de 48 horas.`);
+          throw new Error(`${item.servicio} del ${item.fecha} ya no puede modificarse porque está fuera del plazo configurado.`);
         }
       }
 
@@ -244,7 +254,9 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
     }
 
     if (pagoToken) {
-      await client.query('UPDATE solicitudes SET pago_token=$1 WHERE referencia_reserva=$2', [pagoToken, referencia]);
+      const tokenExistente=previa.rows[0]?.pago_token||'';
+      await client.query('UPDATE solicitudes SET pago_token=$1 WHERE referencia_reserva=$2', [tokenExistente||pagoToken, referencia]);
+      if(tokenExistente) pagoToken=tokenExistente;
     }
   });
 
