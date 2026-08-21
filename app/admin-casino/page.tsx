@@ -6,7 +6,7 @@ export const dynamic='force-dynamic';
 function iso(d:Date){return d.toISOString().slice(0,10)}
 function semana(){const d=new Date(); const mon=new Date(d); mon.setDate(d.getDate()-((d.getDay()+6)%7)); const sun=new Date(mon);sun.setDate(mon.getDate()+6);return [iso(mon),iso(sun)]}
 export default async function Page(){
-  const u=await requireUser(['AdminCasino','AdminTotal','Operaciones']); const [ini,fin]=semana();
+  const u=await requireUser(['AdminCasino','AdminTotal']); const [ini,fin]=semana();
   const [reg,res,min,flujo]=await Promise.all([getReglas(),resumenAdmin(),minutasProximas(),flujoActual(ini,fin)]);
   return <AppShell user={u}><div className="space-y-5">
     <section className="grid gap-3 md:grid-cols-3">{[['Reservas futuras',res.reservas],['Raciones futuras',res.raciones],['Pagos pendientes',res.pendientes]].map(([a,b])=><div key={String(a)} className="rounded-2xl border border-[#A6B0AA]/25 bg-white p-5"><div className="text-sm text-[#6B7570]">{a}</div><div className="text-3xl font-black text-[#0E2A23]">{String(b||0)}</div></div>)}</section>
