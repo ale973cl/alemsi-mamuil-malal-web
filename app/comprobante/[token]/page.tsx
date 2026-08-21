@@ -25,7 +25,7 @@ export default async function ComprobantePage({ params }: { params: Promise<{ to
               <p className="mt-1 text-sm text-[#6B7570]">Finanzas realizará la validación. La carga del archivo no equivale todavía a pago validado.</p>
             </div>
           ) : (
-            <ComprobanteUploader token={token} />
+            <><ComprobanteUploader token={token} />{reserva.estado_pago==='Rechazado'&&<p className="mt-3 text-sm font-semibold text-[#9B2C2C]">El comprobante anterior fue rechazado. Puedes cargar uno nuevo para la misma reserva.</p>}</>
           )}
         </div>
       </div>

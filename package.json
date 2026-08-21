@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "test:profiles": "node --test tests/perfiles.test.mjs",
+    "test:finanzas": "node --test tests/finanzas.test.mjs",
     "test:runtime-auditoria": "node --test tests/auditoria-runtime.test.mjs",
     "typecheck": "tsc --noEmit"
   },
