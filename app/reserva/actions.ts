@@ -1,6 +1,8 @@
 'use server';
 
+import { headers } from 'next/headers';
 import { crearComensal, listarInstitucionesActivas, obtenerComensal, obtenerPrecioPersona } from '@/lib/db/comensales';
+import { notificarReservaConfirmada } from '@/lib/email/notificaciones';
 import { obtenerMinutasRango } from '@/lib/db/minutas';
 import { crearOActualizarReserva, obtenerDeudaBloqueante, obtenerReglasReserva } from '@/lib/db/reservas';
 import {
@@ -78,7 +80,13 @@ export async function confirmarReserva(input: {
 }) {
   try {
     const result = await crearOActualizarReserva(input);
-    return { ok: true as const, result };
+    const h = await headers();
+    const host = h.get('x-forwarded-host') || h.get('host');
+    const proto = h.get('x-forwarded-proto') || 'https';
+    const correo = result.correo && host
+      ? await notificarReservaConfirmada({ correo: result.correo, codigo: result.codigoReserva, referencia: result.referencia, pagoToken: result.pagoToken, origin: `${proto}://${host}` })
+      : null;
+    return { ok: true as const, result: { ...result, correo } };
   } catch (error) {
     return { ok: false as const, error: error instanceof Error ? error.message : 'No fue posible registrar la reserva.' };
   }

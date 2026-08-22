@@ -15,7 +15,8 @@ test('el adaptador usa exclusivamente la configuración SMTP confirmada',async()
 
 test('la verificación no envía mensajes ni registra secretos',async()=>{
   const smtp=await source('lib/email/smtp.ts');
-  assert.doesNotMatch(smtp,/\bMAIL FROM\b|\bRCPT TO\b|\bDATA\b/);
+  const verifier=smtp.slice(smtp.indexOf('export async function verificarTransporteSmtp'),smtp.indexOf('export async function enviarCorreoSmtp'));
+  assert.doesNotMatch(verifier,/\bMAIL FROM\b|\bRCPT TO\b|\bDATA\b/);
   assert.doesNotMatch(smtp,/console\.|EMAIL_PASS.*(?:log|error)/);
   assert.match(smtp,/SMTP CONNECTED \/ AUTH OK/);
   for(const kind of ['configuration','connection','tls','authentication','timeout','protocol']) assert.match(smtp,new RegExp(`'${kind}'`));

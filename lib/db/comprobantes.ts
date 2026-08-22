@@ -7,8 +7,9 @@ export async function obtenerReservaPorPagoToken(token: string) {
     referencia_reserva: string;
     institucion: string | null;
     estado_pago: string | null;
+    correo: string | null;
   }>(
-    `SELECT rut,referencia_reserva,institucion,estado_pago
+    `SELECT rut,referencia_reserva,institucion,estado_pago,correo
        FROM solicitudes
       WHERE pago_token=$1
       ORDER BY fecha

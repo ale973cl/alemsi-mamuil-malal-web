@@ -256,5 +256,6 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
     glosaPrecio: precioPersona.glosa,
     esAlem,
     esCoordinador,
+    correo: String(persona.correo || ''),
   };
 }

@@ -15,6 +15,7 @@
     "test:minutas": "node --test tests/minutas-admin.test.mjs",
     "test:minutas-visibilidad": "node --test tests/minutas-visibilidad.test.mjs",
     "test:mis-reservas": "node --test tests/comprobantes-mis-reservas.test.mjs",
+    "test:correo-runtime": "node --test tests/correo-runtime.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

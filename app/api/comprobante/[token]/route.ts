@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { comprobanteYaCargado, guardarComprobanteEnPostgres, obtenerReservaPorPagoToken } from '@/lib/db/comprobantes';
+import { notificarComprobanteRecibido } from '@/lib/email/notificaciones';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const MIME_PERMITIDOS = new Set(['application/pdf', 'image/jpeg', 'image/png']);
@@ -27,7 +28,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
       bytes,
     });
 
-    return NextResponse.json({ ok: true });
+    const correo = reserva.correo
+      ? await notificarComprobanteRecibido({ correo: reserva.correo, referencia: reserva.referencia_reserva, pagoToken: token, origin: new URL(request.url).origin })
+      : null;
+
+    return NextResponse.json({ ok: true, correo });
   } catch (error) {
     console.error('ALEMSI comprobante:', error);
     return NextResponse.json({ error: error instanceof Error ? error.message : 'No fue posible guardar el comprobante.' }, { status: 500 });
