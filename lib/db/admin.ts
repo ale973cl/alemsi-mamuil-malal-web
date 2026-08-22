@@ -27,7 +27,7 @@ export async function minutasProximas(){
 export async function guardarMinuta(v:{id?:number;fecha:string;servicio:string;tipo_opcion:string;plato:string},u:string){
   await inTransaction(async c=>{
     if(v.id){
-      await c.query(`UPDATE minutas SET fecha=$1,servicio=$2,tipo_opcion=$3,plato=$4,activo=1 WHERE id=$5`,[v.fecha,v.servicio,v.tipo_opcion,v.plato,v.id]);
+      await c.query(`UPDATE minutas SET fecha=$1,servicio=$2,tipo_opcion=$3,plato=$4,activo=1,estado='PUBLICABLE' WHERE id=$5`,[v.fecha,v.servicio,v.tipo_opcion,v.plato,v.id]);
     }else{
       await c.query(`INSERT INTO minutas (fecha,dia_semana,servicio,tipo_opcion,plato,activo,estado) VALUES ($1,'',$2,$3,$4,1,'PUBLICABLE')`,[v.fecha,v.servicio,v.tipo_opcion,v.plato]);
     }
@@ -48,4 +48,17 @@ export async function enviarCoordinacion(inicio:string,fin:string,u:string){
 export async function flujoActual(inicio:string,fin:string){
   const r=await query<any>(`SELECT * FROM minuta_flujo_coordinacion WHERE fecha_desde=$1 AND fecha_hasta=$2 AND COALESCE(activo,1)=1 ORDER BY version DESC,id DESC LIMIT 1`,[inicio,fin]);
   return r[0]||null;
+}
+export async function publicarMinuta(inicio:string,fin:string,u:string,rol:string){
+  if(!['AdminCasino','AdminTotal'].includes(rol)) throw new Error('No tienes autorización para publicar minutas.');
+  return inTransaction(async c=>{
+    const flujo=await c.query<{id:number;estado:string}>(`SELECT id,estado FROM minuta_flujo_coordinacion WHERE fecha_desde=$1 AND fecha_hasta=$2 AND COALESCE(activo,1)=1 ORDER BY version DESC,id DESC LIMIT 1 FOR UPDATE`,[inicio,fin]);
+    const actual=flujo.rows[0];
+    if(!actual||actual.estado!=='AUTORIZADA') throw new Error('La última revisión de Coordinación no está autorizada.');
+    const minuta=await c.query(`UPDATE minutas SET estado='PUBLICADA' WHERE COALESCE(activo,1)=1 AND fecha BETWEEN $1 AND $2 RETURNING id`,[inicio,fin]);
+    if(!minuta.rowCount) throw new Error('No existen filas de minuta activas para el período autorizado.');
+    await c.query(`UPDATE minuta_flujo_coordinacion SET estado='PUBLICADA' WHERE id=$1 AND estado='AUTORIZADA'`,[actual.id]);
+    await registrarAuditoriaTx(c,{usuario:u,accion:'PUBLICAR_MINUTA'});
+    return minuta.rowCount;
+  });
 }
