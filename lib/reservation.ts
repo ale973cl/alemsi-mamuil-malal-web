@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { db, query } from "@/lib/db";
-import { consolidarDeudaPasada } from "@/lib/reglas/reserva";
+import { consolidarDeudaPasada, ESTADO_MINUTA_PUBLICADA } from "@/lib/reglas/reserva";
 
 export const SERVICE_HOURS: Record<string, number> = { Desayuno: 8, Almuerzo: 13, Once: 17, Cena: 20 };
 
@@ -49,8 +49,8 @@ export async function saveReservation(input:{rut:string;choices:ReservationChoic
   if(!isAlem && !coordinator){ const debts=await blockingDebt(rut); if(debts.length) throw new Error("Existen pagos pendientes o rechazados que bloquean una nueva reserva."); }
   if(!isAlem && maxConsecutive(dates)>Number(r.max_dias_consecutivos)) throw new Error(`Máximo permitido: ${r.max_dias_consecutivos} días consecutivos.`);
   for(const c of input.choices){ if(!isWithinCutoff(c.fecha,c.servicio,Number(r.anticipacion_reserva_horas))) throw new Error(`${c.servicio} del ${c.fecha} está fuera del plazo de reserva.`); }
-  // Confirm every selected plate still belongs to a PUBLICABLE menu row.
-  for(const c of input.choices){ const ok=await query<any>(`SELECT id FROM minutas WHERE activo=1 AND COALESCE(estado,'PUBLICABLE')='PUBLICABLE' AND fecha=$1 AND servicio=$2 AND plato=$3 LIMIT 1`,[c.fecha,c.servicio,c.plato]); if(!ok[0]) throw new Error(`El plato ${c.plato} ya no está disponible para ${c.fecha} · ${c.servicio}.`); }
+  // Confirm every selected plate still belongs to an explicitly published menu row.
+  for(const c of input.choices){ const ok=await query<any>(`SELECT id FROM minutas WHERE activo=1 AND estado=$4 AND fecha=$1 AND servicio=$2 AND plato=$3 LIMIT 1`,[c.fecha,c.servicio,c.plato,ESTADO_MINUTA_PUBLICADA]); if(!ok[0]) throw new Error(`El plato ${c.plato} ya no está disponible para ${c.fecha} · ${c.servicio}.`); }
   const price=await personPrice(rut,institution); let ref=genReference(rut); const publicCode=await genPublicCode(); const client=await db().connect(); const now=new Date().toISOString(); const method=coordinator?"Costo asumido · Coordinadores":isAlem?"Interno ALEMSI":String(input.method||"Transferencia bancaria");
   try{
     await client.query("BEGIN");

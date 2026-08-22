@@ -19,6 +19,12 @@ export const REGLAS_RESERVA_DEFAULT: ReglasReserva = {
   excepciones_habilitadas: 1,
 };
 
+export const ESTADO_MINUTA_PUBLICADA = 'PUBLICADA' as const;
+
+export function minutaReservable(estado: string | null | undefined): boolean {
+  return estado === ESTADO_MINUTA_PUBLICADA;
+}
+
 export function limpiarRut(rut: string): string {
   return String(rut ?? '').replace(/[^0-9Kk]/g, '').toUpperCase();
 }

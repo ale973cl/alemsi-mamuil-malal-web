@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { consolidarDeudaPasada } from '../lib/reglas/reserva.ts';
+import { consolidarDeudaPasada, minutaReservable } from '../lib/reglas/reserva.ts';
 
 const source=(path)=>readFile(new URL(`../${path}`,import.meta.url),'utf8');
 
@@ -72,5 +72,24 @@ test('ambos motores consultan líneas y aplican el mismo criterio temporal centr
     assert.match(motor,/SELECT referencia_reserva,fecha,servicio/);
     assert.match(motor,/consolidarDeudaPasada\(lineas\)/);
     assert.doesNotMatch(motor,/GROUP BY referencia_reserva/);
+  }
+});
+
+test('solo el estado PUBLICADA queda disponible para reservas',()=>{
+  for(const estado of ['BORRADOR','EN_REVISION','OBSERVADA','AUTORIZADA','PUBLICABLE',null,undefined]){
+    assert.equal(minutaReservable(estado),false,`${estado} no debe ser reservable`);
+  }
+  assert.equal(minutaReservable('PUBLICADA'),true);
+});
+
+test('ambos motores y ambas lecturas de menú exigen publicación efectiva',async()=>{
+  const fuentes=await Promise.all([
+    source('lib/db/minutas.ts'),
+    source('lib/reservation.ts'),
+    source('app/api/comensal/menu/route.ts'),
+  ]);
+  for(const codigo of fuentes){
+    assert.match(codigo,/ESTADO_MINUTA_PUBLICADA/);
+    assert.doesNotMatch(codigo,/COALESCE\(estado,'PUBLICABLE'\)='PUBLICABLE'/);
   }
 });
