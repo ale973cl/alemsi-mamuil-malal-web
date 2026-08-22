@@ -350,7 +350,7 @@ export default function ReservaWizard() {
               <p className="mt-2 text-sm text-[#6B7570]">Referencia: {resultado.result.referencia}</p>
               {resultado.result.total > 0 && <p className="mt-4 text-xl font-extrabold text-[#0E2A23]">Total: {money(resultado.result.total)}</p>}
               {resultado.result.pagoToken && (
-                <a href={`/comprobante/${encodeURIComponent(resultado.result.pagoToken)}`} className="mt-6 inline-flex min-h-12 items-center rounded-xl bg-[#0E2A23] px-6 font-extrabold text-white hover:bg-[#071814]">Ir a comprobante</a>
+                <div className="mt-6 flex flex-col items-center gap-3"><a href={`/mis-reservas?rut=${encodeURIComponent(rut)}`} className="inline-flex min-h-12 items-center rounded-xl bg-[#0E2A23] px-6 font-extrabold text-white hover:bg-[#071814]">Gestionar en Mis reservas</a><a href={`/comprobante/${encodeURIComponent(resultado.result.pagoToken)}`} className="text-sm font-bold text-[#0E2A23] underline">Acceso directo opcional al comprobante</a></div>
               )}
             </div>
           )}
