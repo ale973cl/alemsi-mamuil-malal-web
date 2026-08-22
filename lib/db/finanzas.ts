@@ -1,5 +1,6 @@
 import 'server-only';
 import { inTransaction, query } from '@/lib/db/pool';
+import { registrarAuditoriaTx } from '@/lib/db/auditoria';
 export { resumenFinanzas } from '@/lib/reglas/finanzas';
 
 export async function listarFinanzas(){
@@ -56,9 +57,6 @@ export async function validarPago(ref:string,estado:'Pagado'|'Rechazado',usuario
         WHERE id=$5`,
       [estado==='Pagado'?'VALIDADO':'RECHAZADO',usuario,ahora,motivoLimpio,comprobante.rows[0].id],
     );
-    await c.query(
-      `INSERT INTO auditoria_acciones (fecha,usuario,accion) VALUES ($1,$2,$3)`,
-      [ahora,usuario,estado==='Pagado'?'PAGO_VALIDADO':'PAGO_RECHAZADO'],
-    );
+    await registrarAuditoriaTx(c,{fecha:ahora,usuario,accion:estado==='Pagado'?'PAGO_VALIDADO':'PAGO_RECHAZADO'});
   });
 }

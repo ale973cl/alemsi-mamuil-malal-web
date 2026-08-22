@@ -17,8 +17,8 @@ test('Finanzas ofrece únicamente Validar y Rechazar y exige motivo de rechazo',
 
 test('validación y rechazo auditan solo columnas reales y conservan comprobantes anteriores',async()=>{
   const db=await source('lib/db/finanzas.ts');
-  assert.match(db,/INSERT INTO auditoria_acciones \(fecha,usuario,accion\)/);
-  assert.doesNotMatch(db,/auditoria_acciones \([^)]*(tabla|detalle)/);
+  assert.match(db,/registrarAuditoriaTx/);
+  assert.doesNotMatch(db,/INSERT INTO auditoria_acciones/);
   assert.match(db,/SELECT id,estado FROM comprobantes_pago WHERE referencia_reserva=\$1 ORDER BY id DESC LIMIT 1 FOR UPDATE/);
   assert.match(db,/WHERE id=\$5/);
   assert.match(db,/!==\s*'RECIBIDO'/);
