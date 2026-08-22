@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { consolidarDeudaPasada } from '../lib/reglas/reserva.ts';
 
 const source=(path)=>readFile(new URL(`../${path}`,import.meta.url),'utf8');
 
@@ -38,4 +39,38 @@ test('el wizard registra y avanza directamente al mismo circuito de minuta',asyn
 test('el alta no modifica reglas, deuda, referencias ni tokens de reserva',async()=>{
   const db=await source('lib/db/comensales.ts');
   assert.doesNotMatch(db,/(solicitudes|referencia_reserva|pago_token|configuracion_reservas)/);
+});
+
+const ahoraChileMediodia=new Date('2026-08-22T16:00:00.000Z');
+const linea=(overrides={})=>({referencia_reserva:'MM-1',fecha:'2026-08-22',servicio:'Almuerzo',monto_pendiente:6400,estado:'Pendiente',...overrides});
+
+test('servicio pasado pendiente bloquea',()=>{
+  const deuda=consolidarDeudaPasada([linea({servicio:'Desayuno'})],ahoraChileMediodia);
+  assert.equal(deuda.length,1);
+  assert.equal(deuda[0].monto_pendiente,6400);
+});
+
+test('reserva futura pendiente sola no bloquea',()=>{
+  const deuda=consolidarDeudaPasada([linea({servicio:'Cena'})],ahoraChileMediodia);
+  assert.deepEqual(deuda,[]);
+});
+
+test('combinación pasada y futura bloquea solamente por la pasada',()=>{
+  const deuda=consolidarDeudaPasada([linea({servicio:'Desayuno'}),linea({servicio:'Cena',monto_pendiente:9000})],ahoraChileMediodia);
+  assert.equal(deuda.length,1);
+  assert.equal(deuda[0].monto_pendiente,6400);
+});
+
+test('sin deuda pasada continúa sin bloqueo',()=>{
+  const deuda=consolidarDeudaPasada([],ahoraChileMediodia);
+  assert.deepEqual(deuda,[]);
+});
+
+test('ambos motores consultan líneas y aplican el mismo criterio temporal central',async()=>{
+  const [nuevo,legado]=await Promise.all([source('lib/db/reservas.ts'),source('lib/reservation.ts')]);
+  for(const motor of [nuevo,legado]){
+    assert.match(motor,/SELECT referencia_reserva,fecha,servicio/);
+    assert.match(motor,/consolidarDeudaPasada\(lineas\)/);
+    assert.doesNotMatch(motor,/GROUP BY referencia_reserva/);
+  }
 });

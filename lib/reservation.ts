@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { db, query } from "@/lib/db";
+import { consolidarDeudaPasada } from "@/lib/reglas/reserva";
 
 export const SERVICE_HOURS: Record<string, number> = { Desayuno: 8, Almuerzo: 13, Once: 17, Cena: 20 };
 
@@ -33,7 +34,8 @@ export async function personPrice(rut:string,institution:string){
   return {price:6400,label:`Institución ${institution}`};
 }
 export async function blockingDebt(rut:string){
-  return query<any>(`SELECT referencia_reserva,MIN(fecha) AS primera_fecha,MAX(fecha) AS ultima_fecha,SUM(COALESCE(precio_aplicado,precio,0)) AS monto_pendiente,STRING_AGG(DISTINCT COALESCE(NULLIF(TRIM(estado_pago),''),'Pendiente'), ', ') AS estados FROM solicitudes WHERE rut=$1 AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA' AND COALESCE(precio_aplicado,precio,0)>0 AND COALESCE(tipo_registro,'RESERVA_COMERCIAL')='RESERVA_COMERCIAL' AND LOWER(TRIM(COALESCE(estado_pago,'Pendiente'))) NOT IN ('pagado','no aplica','costo asumido','costo asumido / no cobrable') GROUP BY referencia_reserva ORDER BY MIN(fecha),referencia_reserva`,[dbRut(rut)]);
+  const lineas=await query<any>(`SELECT referencia_reserva,fecha,servicio,COALESCE(precio_aplicado,precio,0) AS monto_pendiente,COALESCE(NULLIF(TRIM(estado_pago),''),'Pendiente') AS estado FROM solicitudes WHERE rut=$1 AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA' AND COALESCE(precio_aplicado,precio,0)>0 AND COALESCE(tipo_registro,'RESERVA_COMERCIAL')='RESERVA_COMERCIAL' AND LOWER(TRIM(COALESCE(estado_pago,'Pendiente'))) NOT IN ('pagado','no aplica','costo asumido','costo asumido / no cobrable') ORDER BY fecha,referencia_reserva,servicio,id`,[dbRut(rut)]);
+  return consolidarDeudaPasada(lineas);
 }
 export function genReference(rut:string){ const d=new Date(); const p=(n:number)=>String(n).padStart(2,"0"); const stamp=`${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}`; const rc=cleanRut(rut).slice(-5,-1)||"0000"; return `MM-${stamp}-${rc}-${crypto.randomInt(1000,10000)}`; }
 export async function genPublicCode(){ const d=new Date(); const p=(n:number)=>String(n).padStart(2,"0"); const prefix=`R-${p(d.getDate())}${p(d.getMonth()+1)}-${p(d.getHours())}${p(d.getMinutes())}-`; const rows=await query<any>(`SELECT codigo_reserva FROM solicitudes WHERE codigo_reserva LIKE $1 ORDER BY id DESC LIMIT 100`,[`${prefix}%`]).catch(()=>[]); const used=new Set(rows.map(r=>String(r.codigo_reserva))); for(let n=1;n<1000;n++){const c=`${prefix}${String(n).padStart(3,"0")}`;if(!used.has(c))return c;} return `${prefix}${String(Math.floor(Date.now()/1000)%1000).padStart(3,"0")}`; }
