@@ -10,6 +10,8 @@ export type Comensal = {
   institucion: string | null;
 };
 
+export type NuevoComensal = { rut:string; nombre:string; telefono:string; correo:string; institucion:string };
+
 export async function obtenerComensal(rut: string): Promise<Comensal | null> {
   const rows = await query<Comensal>(
     `SELECT rut,nombre,telefono,correo,institucion
@@ -19,6 +21,26 @@ export async function obtenerComensal(rut: string): Promise<Comensal | null> {
     [normalizarRutDb(rut)],
   );
   return rows[0] ?? null;
+}
+
+export async function listarInstitucionesActivas():Promise<string[]> {
+  const rows=await query<{nombre:string}>(`SELECT nombre FROM instituciones WHERE activa=1 ORDER BY nombre`);
+  return rows.map((row)=>row.nombre);
+}
+
+export async function crearComensal(input:NuevoComensal):Promise<Comensal> {
+  const rut=normalizarRutDb(input.rut);
+  const insertados=await query<Comensal>(
+    `INSERT INTO comensales (rut,nombre,telefono,correo,institucion,fecha_registro)
+     VALUES ($1,$2,$3,$4,$5,$6)
+     ON CONFLICT (rut) DO NOTHING
+     RETURNING rut,nombre,telefono,correo,institucion`,
+    [rut,input.nombre.trim(),input.telefono.trim(),input.correo.trim().toLowerCase(),input.institucion.trim(),new Date().toISOString()],
+  );
+  if(insertados[0]) return insertados[0];
+  const existente=await obtenerComensal(rut);
+  if(!existente) throw new Error('No fue posible registrar el comensal.');
+  return existente;
 }
 
 export async function obtenerPrecioPersona(rut: string, institucion: string): Promise<{ precio: number; glosa: string }> {

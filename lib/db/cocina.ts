@@ -1,5 +1,6 @@
 import 'server-only';
 import { inTransaction, query } from '@/lib/db/pool';
+import { registrarAuditoriaTx } from '@/lib/db/auditoria';
 
 export type DemandaProduccion = {
   servicio: string;
@@ -194,11 +195,7 @@ export async function iniciarJornada(fecha: string, usuario: string) {
       faltantesStock.length ? `stock insuficiente: ${[...new Set(faltantesStock)].join(', ')}` : '',
     ].filter(Boolean).join('; ');
 
-    await client.query(
-      `INSERT INTO auditoria_acciones (fecha,usuario,accion,tabla,registro_id,valor_anterior,valor_nuevo,detalle)
-       VALUES ($1,$2,'INICIAR_JORNADA','jornadas_produccion',$3,'Pendiente','En producción',$4)`,
-      [new Date().toISOString(), usuario, fecha, detalle],
-    );
+    await registrarAuditoriaTx(client,{usuario,accion:'INICIAR_JORNADA'});
     return { yaIniciada: false, sinMinuta, sinReceta, faltantesStock };
   });
 }
@@ -229,10 +226,6 @@ export async function cerrarJornada(fecha: string, usuario: string, novedades: s
       `UPDATE jornadas_produccion SET estado='Finalizado',fin_at=$1,usuario_fin=$2,novedades=$3 WHERE fecha=$4`,
       [new Date().toISOString(), usuario, novedades, fecha],
     );
-    await client.query(
-      `INSERT INTO auditoria_acciones (fecha,usuario,accion,tabla,registro_id,valor_anterior,valor_nuevo,detalle)
-       VALUES ($1,$2,'FINALIZAR_JORNADA','jornadas_produccion',$3,'En producción','Finalizado',$4)`,
-      [new Date().toISOString(), usuario, fecha, novedades],
-    );
+    await registrarAuditoriaTx(client,{usuario,accion:'FINALIZAR_JORNADA'});
   });
 }

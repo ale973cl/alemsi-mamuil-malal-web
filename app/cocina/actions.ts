@@ -4,7 +4,7 @@ import { cerrarJornada, iniciarJornada } from '@/lib/db/cocina';
 import { revalidatePath } from 'next/cache';
 
 export async function iniciarAction(fd: FormData) {
-  const u = await requireUser(['Cocina','AdminCasino','AdminTotal','Bodega']);
+  const u = await requireUser(['Cocina','AdminCasino','AdminTotal']);
   const fecha = String(fd.get('fecha') || '');
   if (fd.get('confirmacion') !== 'on') throw new Error('Debes confirmar el inicio de jornada.');
   await iniciarJornada(fecha, u.username);
