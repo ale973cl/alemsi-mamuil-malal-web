@@ -23,7 +23,7 @@ export async function comprobanteYaCargado(token: string): Promise<boolean> {
     `SELECT estado FROM comprobantes_pago WHERE pago_token=$1 ORDER BY id DESC LIMIT 1`,
     [token],
   );
-  return Boolean(rows[0]) && String(rows[0].estado || '').toUpperCase() !== 'RECHAZADO';
+  return Boolean(rows[0]) && !['OBSERVADO','RECHAZADO'].includes(String(rows[0].estado || '').toUpperCase());
 }
 
 export async function guardarComprobanteEnPostgres(input: {
@@ -40,7 +40,7 @@ export async function guardarComprobanteEnPostgres(input: {
       `SELECT estado FROM comprobantes_pago WHERE pago_token=$1 ORDER BY id DESC LIMIT 1 FOR UPDATE`,
       [input.token],
     );
-    if (anterior.rows[0] && String(anterior.rows[0].estado || '').toUpperCase() !== 'RECHAZADO') {
+    if (anterior.rows[0] && !['OBSERVADO','RECHAZADO'].includes(String(anterior.rows[0].estado || '').toUpperCase())) {
       throw new Error('Ya existe un comprobante asociado a esta reserva.');
     }
     await client.query(

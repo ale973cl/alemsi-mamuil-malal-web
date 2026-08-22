@@ -6,6 +6,7 @@ export { resumenFinanzas } from '@/lib/reglas/finanzas';
 export async function listarFinanzas(){
   return query<any>(
     `SELECT s.referencia_reserva,
+            MAX(s.rut) rut,
             MAX(s.codigo_reserva) codigo_reserva,
             MIN(s.fecha) primera_fecha,
             MAX(s.fecha) ultima_fecha,
@@ -20,6 +21,9 @@ export async function listarFinanzas(){
             MAX(cp.nombre_archivo) comprobante_archivo,
             MAX(cp.estado) comprobante_estado,
             MAX(cp.observacion_validacion) comprobante_motivo
+            ,(SELECT JSON_AGG(JSON_BUILD_OBJECT('id',h.id,'archivo',h.nombre_archivo,'estado',h.estado,'motivo',h.observacion_validacion,'fecha',h.fecha_carga) ORDER BY h.id DESC)
+                FROM comprobantes_pago h
+               WHERE h.referencia_reserva=s.referencia_reserva) comprobantes_historial
        FROM solicitudes s
        LEFT JOIN comensales c ON c.rut=s.rut
        LEFT JOIN LATERAL (
@@ -36,9 +40,9 @@ export async function listarFinanzas(){
   );
 }
 
-export async function validarPago(ref:string,estado:'Pagado'|'Rechazado',usuario:string,motivo:string){
+export async function validarPago(ref:string,estado:'Pagado'|'Observado'|'Rechazado',usuario:string,motivo:string){
   const motivoLimpio=motivo.trim();
-  if(estado==='Rechazado'&&!motivoLimpio) throw new Error('Debes indicar el motivo del rechazo.');
+  if(estado!=='Pagado'&&!motivoLimpio) throw new Error(`Debes indicar el motivo de ${estado==='Observado'?'la observación':'el rechazo'}.`);
   await inTransaction(async c=>{
     const ahora=new Date().toISOString();
     const comprobante=await c.query<{id:number;estado:string}>(
@@ -55,8 +59,8 @@ export async function validarPago(ref:string,estado:'Pagado'|'Rechazado',usuario
       `UPDATE comprobantes_pago
           SET estado=$1,validado_por=$2,fecha_validacion=$3,observacion_validacion=$4
         WHERE id=$5`,
-      [estado==='Pagado'?'VALIDADO':'RECHAZADO',usuario,ahora,motivoLimpio,comprobante.rows[0].id],
+      [estado==='Pagado'?'VALIDADO':estado==='Observado'?'OBSERVADO':'RECHAZADO',usuario,ahora,motivoLimpio,comprobante.rows[0].id],
     );
-    await registrarAuditoriaTx(c,{fecha:ahora,usuario,accion:estado==='Pagado'?'PAGO_VALIDADO':'PAGO_RECHAZADO'});
+    await registrarAuditoriaTx(c,{fecha:ahora,usuario,accion:estado==='Pagado'?'PAGO_VALIDADO':estado==='Observado'?'PAGO_OBSERVADO':'PAGO_RECHAZADO'});
   });
 }
