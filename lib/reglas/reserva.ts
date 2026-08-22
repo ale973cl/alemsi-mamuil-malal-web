@@ -19,6 +19,12 @@ export const REGLAS_RESERVA_DEFAULT: ReglasReserva = {
   excepciones_habilitadas: 1,
 };
 
+export const ESTADO_MINUTA_PUBLICADA = 'PUBLICADA' as const;
+
+export function minutaReservable(estado: string | null | undefined): boolean {
+  return estado === ESTADO_MINUTA_PUBLICADA;
+}
+
 export function limpiarRut(rut: string): string {
   return String(rut ?? '').replace(/[^0-9Kk]/g, '').toUpperCase();
 }
@@ -97,6 +103,37 @@ function fechaHoraServicioEpoch(fechaIso: string, servicio: string, timeZone = '
   const hora = HORAS_SERVICIO[servicio] ?? 12;
   const [year, month, day] = fechaIso.split('-').map(Number);
   return zonedEpoch(year, month, day, hora, 0, timeZone);
+}
+
+export function servicioYaOcurrio(
+  fechaIso:string,
+  servicio:string,
+  ahora=new Date(),
+  timeZone='America/Santiago',
+):boolean {
+  return ahora.getTime()>=fechaHoraServicioEpoch(fechaIso,servicio,timeZone);
+}
+
+export type LineaDeuda={referencia_reserva:string;fecha:string;servicio:string;monto_pendiente:number;estado:string};
+export type DeudaBloqueante={referencia_reserva:string;primera_fecha:string;ultima_fecha:string;monto_pendiente:number;estados:string};
+
+export function consolidarDeudaPasada(lineas:LineaDeuda[],ahora=new Date()):DeudaBloqueante[]{
+  const agrupadas=new Map<string,{fechas:string[];monto:number;estados:Set<string>}>();
+  for(const linea of lineas){
+    if(!servicioYaOcurrio(String(linea.fecha),String(linea.servicio),ahora)) continue;
+    const actual=agrupadas.get(linea.referencia_reserva)||{fechas:[],monto:0,estados:new Set<string>()};
+    actual.fechas.push(String(linea.fecha));
+    actual.monto+=Number(linea.monto_pendiente||0);
+    actual.estados.add(String(linea.estado||'Pendiente'));
+    agrupadas.set(linea.referencia_reserva,actual);
+  }
+  return [...agrupadas.entries()].map(([referencia_reserva,deuda])=>({
+    referencia_reserva,
+    primera_fecha:[...deuda.fechas].sort()[0],
+    ultima_fecha:[...deuda.fechas].sort().at(-1)!,
+    monto_pendiente:deuda.monto,
+    estados:[...deuda.estados].join(', '),
+  })).sort((a,b)=>a.primera_fecha.localeCompare(b.primera_fecha)||a.referencia_reserva.localeCompare(b.referencia_reserva));
 }
 
 export function reservaComercialHabilitada(

@@ -6,6 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test:profiles": "node --test tests/perfiles.test.mjs",
+    "test:comensal": "node --test tests/comensal.test.mjs",
+    "test:publicacion": "node --test tests/publicacion-minuta.test.mjs",
+    "test:finanzas": "node --test tests/finanzas.test.mjs",
+    "test:runtime-auditoria": "node --test tests/auditoria-runtime.test.mjs",
+    "test:smtp": "node --test tests/smtp.test.mjs",
+    "test:minutas": "node --test tests/minutas-admin.test.mjs",
+    "test:minutas-visibilidad": "node --test tests/minutas-visibilidad.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

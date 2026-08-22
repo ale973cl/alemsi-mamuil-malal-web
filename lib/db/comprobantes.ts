@@ -19,11 +19,11 @@ export async function obtenerReservaPorPagoToken(token: string) {
 }
 
 export async function comprobanteYaCargado(token: string): Promise<boolean> {
-  const rows = await query<{ id: number }>(
-    `SELECT id FROM comprobantes_pago WHERE pago_token=$1 ORDER BY id DESC LIMIT 1`,
+  const rows = await query<{ estado: string | null }>(
+    `SELECT estado FROM comprobantes_pago WHERE pago_token=$1 ORDER BY id DESC LIMIT 1`,
     [token],
   );
-  return Boolean(rows[0]);
+  return Boolean(rows[0]) && !['OBSERVADO','RECHAZADO'].includes(String(rows[0].estado || '').toUpperCase());
 }
 
 export async function guardarComprobanteEnPostgres(input: {
@@ -35,6 +35,14 @@ export async function guardarComprobanteEnPostgres(input: {
   bytes: Uint8Array;
 }) {
   await inTransaction(async (client) => {
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`COMPROBANTE|${input.token}`]);
+    const anterior = await client.query<{ estado: string | null }>(
+      `SELECT estado FROM comprobantes_pago WHERE pago_token=$1 ORDER BY id DESC LIMIT 1 FOR UPDATE`,
+      [input.token],
+    );
+    if (anterior.rows[0] && !['OBSERVADO','RECHAZADO'].includes(String(anterior.rows[0].estado || '').toUpperCase())) {
+      throw new Error('Ya existe un comprobante asociado a esta reserva.');
+    }
     await client.query(
       `INSERT INTO comprobantes_pago
         (referencia_reserva,pago_token,rut,nombre_archivo,mime_type,contenido,fecha_carga,estado,storage_provider)

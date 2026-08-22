@@ -1,6 +1,6 @@
 'use server';
 
-import { obtenerComensal, obtenerPrecioPersona } from '@/lib/db/comensales';
+import { crearComensal, listarInstitucionesActivas, obtenerComensal, obtenerPrecioPersona } from '@/lib/db/comensales';
 import { obtenerMinutasRango } from '@/lib/db/minutas';
 import { crearOActualizarReserva, obtenerDeudaBloqueante, obtenerReglasReserva } from '@/lib/db/reservas';
 import {
@@ -16,7 +16,7 @@ export async function identificarComensal(rutInput: string) {
   if (!validarRutM11(rutInput)) return { ok: false as const, error: 'RUT inválido.' };
   const rut = normalizarRutDb(rutInput);
   const persona = await obtenerComensal(rut);
-  if (!persona) return { ok: false as const, error: 'El RUT no está registrado como comensal.' };
+  if (!persona) return { ok: false as const, nuevo: true as const, rut, rutVisible: normalizarRutVisible(rut), instituciones: await listarInstitucionesActivas() };
   const institucion = persona.institucion?.trim() || 'Visitas';
   const precio = await obtenerPrecioPersona(rut, institucion);
   const tipo = tipoInstitucion(institucion);
@@ -27,6 +27,26 @@ export async function identificarComensal(rutInput: string) {
     precio,
     deudas,
   };
+}
+
+const correoValido=(valor:string)=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor);
+const telefonoValido=(valor:string)=>/^\+?56\s?9\s?\d{4}\s?\d{4}$/.test(valor.replace(/[()-]/g,' ').replace(/\s+/g,' ').trim())||/^9\d{8}$/.test(valor.replace(/\D/g,''));
+
+export async function registrarNuevoComensal(input:{rut:string;nombre:string;telefono:string;correo:string;institucion:string}) {
+  try {
+    if(!validarRutM11(input.rut)) return {ok:false as const,error:'RUT inválido.'};
+    if(!input.nombre.trim()||!input.institucion.trim()) return {ok:false as const,error:'Completa nombre e institución.'};
+    if(!correoValido(input.correo.trim())) return {ok:false as const,error:'Correo inválido.'};
+    if(!telefonoValido(input.telefono)) return {ok:false as const,error:'Ingresa un móvil chileno válido.'};
+    const instituciones=await listarInstitucionesActivas();
+    if(!instituciones.includes(input.institucion.trim())) return {ok:false as const,error:'Selecciona una institución válida.'};
+    await crearComensal(input);
+    const perfil=await identificarComensal(input.rut);
+    if(!perfil.ok) return {ok:false as const,error:'No fue posible cargar la ficha registrada.'};
+    return perfil;
+  } catch(error) {
+    return {ok:false as const,error:error instanceof Error?error.message:'No fue posible registrar el comensal.'};
+  }
 }
 
 export async function cargarMinutaDisponible(rutInput: string, inicio: string, fin: string) {

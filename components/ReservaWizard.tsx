@@ -1,13 +1,13 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { cargarMinutaDisponible, confirmarReserva, identificarComensal } from '@/app/reserva/actions';
+import { cargarMinutaDisponible, confirmarReserva, identificarComensal, registrarNuevoComensal } from '@/app/reserva/actions';
 import type { EleccionReserva } from '@/lib/reglas/reserva';
 
 type Perfil = Awaited<ReturnType<typeof identificarComensal>>;
 type Minuta = Awaited<ReturnType<typeof cargarMinutaDisponible>>;
 
-type Etapa = 'rut' | 'fechas' | 'dia' | 'revision' | 'resultado';
+type Etapa = 'rut' | 'registro' | 'fechas' | 'dia' | 'revision' | 'resultado';
 
 const ordenarServicios = ['Desayuno', 'Almuerzo', 'Once', 'Cena'];
 
@@ -47,6 +47,8 @@ export default function ReservaWizard() {
   const [confirmado, setConfirmado] = useState(false);
   const [resultado, setResultado] = useState<Awaited<ReturnType<typeof confirmarReserva>> | null>(null);
   const [error, setError] = useState('');
+  const [nuevo, setNuevo] = useState<{rut:string;rutVisible:string;instituciones:string[]}|null>(null);
+  const [registro, setRegistro] = useState({nombre:'',telefono:'',correo:'',institucion:''});
   const [pending, startTransition] = useTransition();
 
   const rows = minuta?.rows ?? [];
@@ -67,17 +69,35 @@ export default function ReservaWizard() {
     resetError();
     startTransition(async () => {
       const response = await identificarComensal(rut);
-      if (!response.ok) return setError(response.error);
+      if (!response.ok) {
+        if('nuevo' in response&&response.nuevo){setNuevo(response);setEtapa('registro');return;}
+        return setError(response.error);
+      }
+      await continuarConPerfil(response);
+    });
+  }
+
+  async function continuarConPerfil(response:Extract<Perfil,{ok:true}>) {
       setPerfil(response);
+      setNuevo(null);
       if (response.deudas.length) {
         setEtapa('fechas');
         return;
       }
       const { first, last } = mesActual();
       const menu = await cargarMinutaDisponible(response.persona.rut, first, last);
-      if (!menu.ok) return setError(menu.error);
+      if (!menu.ok) return setError('error' in menu&&typeof menu.error==='string'?menu.error:'No fue posible cargar la minuta.');
       setMinuta(menu);
       setEtapa('fechas');
+  }
+
+  function registrar() {
+    if(!nuevo)return;
+    resetError();
+    startTransition(async()=>{
+      const response=await registrarNuevoComensal({rut:nuevo.rut,...registro});
+      if(!response.ok)return setError(response.error);
+      await continuarConPerfil(response);
     });
   }
 
@@ -167,6 +187,21 @@ export default function ReservaWizard() {
                 </button>
               </div>
               <p className="mt-3 text-sm text-[#6B7570]">El RUT se valida y consulta únicamente en el servidor.</p>
+            </div>
+          )}
+
+          {etapa === 'registro' && nuevo && (
+            <div className="mx-auto max-w-2xl">
+              <p className="text-xs font-bold uppercase tracking-wider text-[#1DB954]">Nuevo comensal</p>
+              <h3 className="mt-1 text-xl font-extrabold text-[#0E2A23]">Completa tu ficha para continuar</h3>
+              <p className="mt-1 text-sm text-[#6B7570]">RUT {nuevo.rutVisible}. Esta ficha es independiente de los usuarios internos.</p>
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <label className="text-sm font-bold">Nombre completo<input value={registro.nombre} onChange={(e)=>setRegistro({...registro,nombre:e.target.value})} required className="mt-1 min-h-12 w-full rounded-xl border px-3 font-normal"/></label>
+                <label className="text-sm font-bold">Teléfono móvil<input value={registro.telefono} onChange={(e)=>setRegistro({...registro,telefono:e.target.value})} required placeholder="+56 9 1234 5678" className="mt-1 min-h-12 w-full rounded-xl border px-3 font-normal"/></label>
+                <label className="text-sm font-bold">Correo<input type="email" value={registro.correo} onChange={(e)=>setRegistro({...registro,correo:e.target.value})} required className="mt-1 min-h-12 w-full rounded-xl border px-3 font-normal"/></label>
+                <label className="text-sm font-bold">Institución<select value={registro.institucion} onChange={(e)=>setRegistro({...registro,institucion:e.target.value})} required className="mt-1 min-h-12 w-full rounded-xl border bg-white px-3 font-normal"><option value="">Seleccionar</option>{nuevo.instituciones.map((nombre)=><option key={nombre}>{nombre}</option>)}</select></label>
+              </div>
+              <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-between"><button onClick={()=>{setEtapa('rut');setNuevo(null);setError('');}} className="min-h-12 rounded-xl border px-5 font-bold">← Volver</button><button onClick={registrar} disabled={pending||!registro.nombre||!registro.telefono||!registro.correo||!registro.institucion} className="min-h-12 rounded-xl bg-[#1DB954] px-6 font-extrabold disabled:opacity-40">{pending?'Registrando…':'Registrar y continuar'}</button></div>
             </div>
           )}
 
