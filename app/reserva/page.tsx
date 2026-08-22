@@ -1,6 +1,7 @@
 import ReservaWizard from '@/components/ReservaWizard';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 export default function ReservaPage() {
   return (

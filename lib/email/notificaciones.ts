@@ -8,10 +8,14 @@ function enlaceComprobante(origin:string,token:string){
   return base.toString();
 }
 
-export function notificarReservaConfirmada(input:{correo:string;codigo:string;referencia:string;pagoToken?:string;origin:string}):Promise<SmtpDelivery>{
+export function correoReservaConfirmada(input:{correo:string;codigo:string;referencia:string;pagoToken?:string;origin:string}){
   const lineas=[`Tu reserva ${input.codigo} fue confirmada.`,`Referencia: ${input.referencia}.`];
   if(input.pagoToken) lineas.push(`Gestiona el comprobante de esta misma reserva en: ${enlaceComprobante(input.origin,input.pagoToken)}`);
-  return enviarCorreoSmtp({to:input.correo,subject:`Reserva confirmada ${input.codigo}`,text:lineas.join('\n\n')});
+  return {to:input.correo,subject:`Reserva confirmada ${input.codigo}`,text:lineas.join('\n\n')};
+}
+
+export function notificarReservaConfirmada(input:{correo:string;codigo:string;referencia:string;pagoToken?:string;origin:string}):Promise<SmtpDelivery>{
+  return enviarCorreoSmtp(correoReservaConfirmada(input));
 }
 
 export function notificarComprobanteRecibido(input:{correo:string;referencia:string;pagoToken:string;origin:string}):Promise<SmtpDelivery>{

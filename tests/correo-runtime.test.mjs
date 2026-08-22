@@ -6,7 +6,12 @@ const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf
 
 test('Reserva envía después de persistir y mantiene el enlace del pago_token', () => {
   const action=read('app/reserva/actions.ts');
-  assert.ok(action.indexOf('crearOActualizarReserva(input)') < action.lastIndexOf('notificarReservaConfirmada'));
+  assert.ok(action.indexOf('crearOActualizarReserva(input)') < action.lastIndexOf('enviarCorreoSmtp'));
+  assert.match(action,/await enviarCorreoSmtp\(correoReservaConfirmada/);
+  assert.match(action,/RESERVA_SMTP_START/);
+  assert.match(action,/RESERVA_SMTP_OK/);
+  assert.match(action,/RESERVA_SMTP_ERROR/);
+  assert.match(action,/return \{ ok: true as const, result:/);
   const api=read('app/api/comensal/confirm/route.ts');
   assert.ok(api.lastIndexOf('saveReservation') < api.lastIndexOf('notificarReservaConfirmada'));
   const mail=read('lib/email/notificaciones.ts');

@@ -2,7 +2,8 @@
 
 import { headers } from 'next/headers';
 import { crearComensal, listarInstitucionesActivas, obtenerComensal, obtenerPrecioPersona } from '@/lib/db/comensales';
-import { notificarReservaConfirmada } from '@/lib/email/notificaciones';
+import { correoReservaConfirmada } from '@/lib/email/notificaciones';
+import { enviarCorreoSmtp } from '@/lib/email/smtp';
 import { obtenerMinutasRango } from '@/lib/db/minutas';
 import { crearOActualizarReserva, obtenerDeudaBloqueante, obtenerReglasReserva } from '@/lib/db/reservas';
 import {
@@ -83,9 +84,20 @@ export async function confirmarReserva(input: {
     const h = await headers();
     const host = h.get('x-forwarded-host') || h.get('host');
     const proto = h.get('x-forwarded-proto') || 'https';
-    const correo = result.correo && host
-      ? await notificarReservaConfirmada({ correo: result.correo, codigo: result.codigoReserva, referencia: result.referencia, pagoToken: result.pagoToken, origin: `${proto}://${host}` })
-      : null;
+    let correo: Awaited<ReturnType<typeof enviarCorreoSmtp>> | null = null;
+    console.info('RESERVA_SMTP_START');
+    try {
+      if (!result.correo || !host) {
+        correo = { ok: false, errorType: 'configuration' };
+      } else {
+        correo = await enviarCorreoSmtp(correoReservaConfirmada({ correo: result.correo, codigo: result.codigoReserva, referencia: result.referencia, pagoToken: result.pagoToken, origin: `${proto}://${host}` }));
+      }
+      if (correo.ok) console.info('RESERVA_SMTP_OK');
+      else console.error('RESERVA_SMTP_ERROR', correo.errorType);
+    } catch {
+      correo = { ok: false, errorType: 'protocol' };
+      console.error('RESERVA_SMTP_ERROR', 'protocol');
+    }
     return { ok: true as const, result: { ...result, correo } };
   } catch (error) {
     return { ok: false as const, error: error instanceof Error ? error.message : 'No fue posible registrar la reserva.' };
