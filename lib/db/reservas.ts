@@ -11,6 +11,7 @@ import {
   maxConsecutivosFechas,
   normalizarRutDb,
   reservaComercialHabilitada,
+  consolidarDeudaPasada,
   tipoInstitucion,
   validarEleccionesPorDia,
   type EleccionReserva,
@@ -32,18 +33,16 @@ export async function obtenerReglasReserva(): Promise<ReglasReserva> {
 }
 
 export async function obtenerDeudaBloqueante(rut: string) {
-  return query<{
-    referencia_reserva: string;
-    primera_fecha: string;
-    ultima_fecha: string;
-    monto_pendiente: number;
-    estados: string;
+  const lineas=await query<{
+    referencia_reserva:string;
+    fecha:string;
+    servicio:string;
+    monto_pendiente:number;
+    estado:string;
   }>(
-    `SELECT referencia_reserva,
-            MIN(fecha) AS primera_fecha,
-            MAX(fecha) AS ultima_fecha,
-            SUM(COALESCE(precio_aplicado,precio,0)) AS monto_pendiente,
-            STRING_AGG(DISTINCT COALESCE(NULLIF(TRIM(estado_pago),''),'Pendiente'), ', ') AS estados
+    `SELECT referencia_reserva,fecha,servicio,
+            COALESCE(precio_aplicado,precio,0) AS monto_pendiente,
+            COALESCE(NULLIF(TRIM(estado_pago),''),'Pendiente') AS estado
        FROM solicitudes
       WHERE rut=$1
         AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA'
@@ -51,10 +50,10 @@ export async function obtenerDeudaBloqueante(rut: string) {
         AND COALESCE(tipo_registro,'RESERVA_COMERCIAL')='RESERVA_COMERCIAL'
         AND LOWER(TRIM(COALESCE(estado_pago,'Pendiente'))) NOT IN
             ('pagado','no aplica','costo asumido','costo asumido / no cobrable')
-      GROUP BY referencia_reserva
-      ORDER BY MIN(fecha),referencia_reserva`,
+      ORDER BY fecha,referencia_reserva,servicio,id`,
     [normalizarRutDb(rut)],
   );
+  return consolidarDeudaPasada(lineas);
 }
 
 async function excepcionReservaActiva(rut: string, fecha: string): Promise<boolean> {
