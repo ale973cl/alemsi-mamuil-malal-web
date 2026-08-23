@@ -9,7 +9,7 @@ export async function dashboardGerencia(){
     query<any>(`SELECT fecha,usuario,accion FROM auditoria_acciones ORDER BY id DESC LIMIT 30`),
     query<any>(`SELECT estado,COUNT(*) cantidad FROM jornadas_produccion GROUP BY estado ORDER BY estado`),
     query<any>(`SELECT COUNT(*) lotes,COUNT(*) FILTER (WHERE COALESCE(stock,0)>0) con_stock,COALESCE(SUM(stock),0) stock_total FROM bodega_inventario`),
-    query<any>(`SELECT 'PUBLICADA' estado,COUNT(*) cantidad FROM minutas WHERE COALESCE(activo,1)=1 AND estado='PUBLICADA'`),
+    query<any>(`SELECT COALESCE(estado,'PUBLICABLE') estado,COUNT(*) cantidad FROM minutas WHERE COALESCE(activo,1)=1 GROUP BY COALESCE(estado,'PUBLICABLE') ORDER BY estado`),
   ]);
   return {resumen:reservas[0]||{},pagos,produccion,auditoria,jornadas,bodega:bodega[0]||{},minutas};
 }

@@ -10,7 +10,7 @@ export default async function ComprobantePage({ params }: { params: Promise<{ to
   if (!reserva) notFound();
   const cargado = await comprobanteYaCargado(token);
   const estado = String(reserva.estado_pago || '').toUpperCase();
-  const recarga = estado.includes('OBSERV') || estado.includes('RECHAZ');
+  const recarga =  estado.includes('RECHAZ');
 
   return (
     <main className="min-h-screen bg-[#F6F3EA] px-4 py-8 sm:py-12">
@@ -27,7 +27,7 @@ export default async function ComprobantePage({ params }: { params: Promise<{ to
               <p className="mt-1 text-sm text-[#6B7570]">Finanzas realizará la validación. La carga del archivo no equivale todavía a pago validado.</p>
             </div>
           ) : (
-            <><ComprobanteUploader token={token} />{recarga&&<p className="mt-3 text-sm font-semibold text-[#9B2C2C]">El comprobante anterior fue observado o rechazado. Puedes cargar uno nuevo para la misma reserva, conservando el historial.</p>}</>
+            <><ComprobanteUploader token={token} />{reserva.estado_pago==='Rechazado'&&<p className="mt-3 text-sm font-semibold text-[#9B2C2C]">El comprobante anterior fue rechazado. Puedes cargar uno nuevo para la misma reserva.</p>}</>
           )}
           <a className="mt-5 inline-flex font-bold text-[#0E2A23] underline" href={`/mis-reservas?rut=${encodeURIComponent(reserva.rut)}`}>Volver a Mis reservas</a>
         </div>

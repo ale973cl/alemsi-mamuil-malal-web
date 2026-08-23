@@ -79,7 +79,7 @@ function command(socket:net.Socket|tls.TLSSocket,value:string){
   socket.write(`${value}\r\n`);
 }
 
-async function authenticatedSession(){
+,async function authenticatedSession(){
   const config=smtpConfig();
   let socket:net.Socket|tls.TLSSocket|undefined;
   let responses:ReturnType<typeof responseReader>|undefined;
