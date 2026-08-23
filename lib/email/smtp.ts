@@ -24,7 +24,7 @@ function smtpConfig(){
   const server=process.env.SMTP_SERVER?.trim();
   const portText=process.env.SMTP_PORT?.trim();
   const user=process.env.EMAIL_USER?.trim();
-  const pass=process.env.EMAIL_PASS;
+  const pass=process.env.EMAIL_PASS?.replace(/\s+/g,'');
   const port=Number(portText);
   if(!server||!portText||!Number.isInteger(port)||port<1||port>65535||!user||!pass) throw new SafeSmtpError('configuration');
   return {server,port,user,pass};
