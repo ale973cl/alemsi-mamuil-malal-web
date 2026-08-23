@@ -22,17 +22,22 @@ export async function resumenAdmin(){
   return {...r[0],...p[0],...m[0]};
 }
 export async function minutasProximas(){
-  return query<any>(`SELECT id,fecha,servicio,tipo_opcion,plato,COALESCE(estado,'PUBLICABLE') estado FROM minutas WHERE activo=1 AND fecha>=CURRENT_DATE::text ORDER BY fecha,CASE servicio WHEN 'Desayuno' THEN 1 WHEN 'Almuerzo' THEN 2 WHEN 'Once' THEN 3 WHEN 'Cena' THEN 4 ELSE 5 END,tipo_opcion LIMIT 300`);
-}
-export async function minutasPeriodo(inicio:string,fin:string){
-  return query<any>(`SELECT id,fecha,servicio,tipo_opcion,plato,COALESCE(estado,'PUBLICABLE') estado FROM minutas WHERE COALESCE(activo,1)=1 AND fecha BETWEEN $1 AND $2 ORDER BY fecha,CASE servicio WHEN 'Desayuno' THEN 1 WHEN 'Almuerzo' THEN 2 WHEN 'Once' THEN 3 WHEN 'Cena' THEN 4 ELSE 5 END,tipo_opcion,id`,[inicio,fin]);
+  return query<any>(`SELECT m.id,m.fecha,m.servicio,m.tipo_opcion,m.plato,COALESCE(m.estado,'PUBLICABLE') estado,
+    (SELECT COUNT(*) FROM solicitudes s WHERE s.fecha=m.fecha AND s.servicio=m.servicio AND COALESCE(s.plato_reservado,s.plato)=m.plato AND COALESCE(s.estado_reserva,'ACTIVA')='ACTIVA') cantidad,
+    COALESCE((SELECT JSON_AGG(JSON_BUILD_OBJECT('institucion',q.institucion,'cantidad',q.cantidad,'comensales',q.comensales) ORDER BY q.institucion)
+      FROM (SELECT COALESCE(ss.institucion,'Sin institución') institucion,COUNT(*) cantidad,JSON_AGG(COALESCE(c.nombre,ss.rut) ORDER BY COALESCE(c.nombre,ss.rut)) comensales
+            FROM solicitudes ss LEFT JOIN comensales c ON c.rut=ss.rut
+            WHERE ss.fecha=m.fecha AND ss.servicio=m.servicio AND COALESCE(ss.plato_reservado,ss.plato)=m.plato AND COALESCE(ss.estado_reserva,'ACTIVA')='ACTIVA'
+            GROUP BY COALESCE(ss.institucion,'Sin institución')) q),'[]'::json) instituciones
+    FROM minutas m WHERE m.activo=1 AND m.fecha>=CURRENT_DATE::text
+    ORDER BY m.fecha,CASE m.servicio WHEN 'Desayuno' THEN 1 WHEN 'Almuerzo' THEN 2 WHEN 'Once' THEN 3 WHEN 'Cena' THEN 4 ELSE 5 END,m.tipo_opcion LIMIT 300`);
 }
 export async function guardarMinuta(v:{id?:number;fecha:string;servicio:string;tipo_opcion:string;plato:string},u:string){
   await inTransaction(async c=>{
     if(v.id){
-      await c.query(`UPDATE minutas SET fecha=$1,servicio=$2,tipo_opcion=$3,plato=$4,activo=1,estado='PUBLICABLE' WHERE id=$5`,[v.fecha,v.servicio,v.tipo_opcion,v.plato,v.id]);
+      await c.query(`UPDATE minutas SET fecha=$1,servicio=$2,tipo_opcion=$3,plato=$4,activo=1,estado='BORRADOR' WHERE id=$5`,[v.fecha,v.servicio,v.tipo_opcion,v.plato,v.id]);
     }else{
-      await c.query(`INSERT INTO minutas (fecha,dia_semana,servicio,tipo_opcion,plato,activo,estado) VALUES ($1,'',$2,$3,$4,1,'PUBLICABLE')`,[v.fecha,v.servicio,v.tipo_opcion,v.plato]);
+      await c.query(`INSERT INTO minutas (fecha,dia_semana,servicio,tipo_opcion,plato,activo,estado) VALUES ($1,'',$2,$3,$4,1,'BORRADOR')`,[v.fecha,v.servicio,v.tipo_opcion,v.plato]);
     }
     await c.query(`UPDATE minuta_flujo_coordinacion SET estado='REQUIERE_REVALIDACION',observacion=CASE WHEN COALESCE(observacion,'')='' THEN $1 ELSE observacion||' | '||$1 END WHERE COALESCE(activo,1)=1 AND fecha_desde<=$2 AND fecha_hasta>=$2 AND estado IN ('EN_REVISION','AUTORIZADA','PUBLICADA')`,['Minuta editada después de revisión',v.fecha]);
     await registrarAuditoriaTx(c,{usuario:u,accion:'EDITAR_MINUTA'});

@@ -64,3 +64,20 @@ export async function validarPago(ref:string,estado:'Pagado'|'Observado'|'Rechaz
     await registrarAuditoriaTx(c,{fecha:ahora,usuario,accion:estado==='Pagado'?'PAGO_VALIDADO':estado==='Observado'?'PAGO_OBSERVADO':'PAGO_RECHAZADO'});
   });
 }
+
+export async function validarPagoSinComprobante(ref:string,usuario:string,medio:string,observacion:string){
+  const medios=['WhatsApp','Correo directo','Transferencia revisada en banco','Teléfono','Otro'];
+  const m=medio.trim(),o=observacion.trim();
+  if(!medios.includes(m)) throw new Error('Selecciona un medio de validación válido.');
+  if(!o) throw new Error('La observación es obligatoria.');
+  await inTransaction(async c=>{
+    const ahora=new Date().toISOString();
+    const reserva=await c.query<{estado_pago:string}>(`SELECT COALESCE(estado_pago,'Pendiente') estado_pago FROM solicitudes WHERE referencia_reserva=$1 AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA' LIMIT 1 FOR UPDATE`,[ref]);
+    if(!reserva.rows[0]) throw new Error('Reserva no encontrada.');
+    const comp=await c.query(`SELECT id FROM comprobantes_pago WHERE referencia_reserva=$1 ORDER BY id DESC LIMIT 1`,[ref]);
+    if(comp.rows[0]) throw new Error('Esta reserva ya tiene comprobante. Usa la validación normal.');
+    const detalle=`Validado sin comprobante · ${m} · ${o}`;
+    await c.query(`UPDATE solicitudes SET estado_pago='Pagado',motivo_estado_pago=$1,fecha_modificacion=$2,modificado_por=$3 WHERE referencia_reserva=$4 AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA'`,[detalle,ahora,usuario,ref]);
+    await registrarAuditoriaTx(c,{fecha:ahora,usuario,accion:`PAGO_VALIDADO_SIN_COMPROBANTE | ${m} | ${ref}`});
+  });
+}
