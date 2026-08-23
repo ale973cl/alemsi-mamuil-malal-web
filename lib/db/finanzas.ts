@@ -20,8 +20,8 @@ export async function listarFinanzas(){
             MAX(cp.id) comprobante_id,
             MAX(cp.nombre_archivo) comprobante_archivo,
             MAX(cp.estado) comprobante_estado,
-            MAX(cp.observacion_validacion) comprobante_motivo
-            ,(SELECT JSON_AGG(JSON_BUILD_OBJECT('id',h.id,'archivo',h.nombre_archivo,'estado',h.estado,'motivo',h.observacion_validacion,'fecha',h.fecha_carga) ORDER BY h.id DESC)
+            MAX(cp.observacion_validacion) comprobante_motivo,
+            (SELECT JSON_AGG(JSON_BUILD_OBJECT('id',h.id,'archivo',h.nombre_archivo,'estado',h.estado,'motivo',h.observacion_validacion,'fecha',h.fecha_carga) ORDER BY h.id DESC)
                 FROM comprobantes_pago h
                WHERE h.referencia_reserva=s.referencia_reserva) comprobantes_historial
        FROM solicitudes s
@@ -62,5 +62,30 @@ export async function validarPago(ref:string,estado:'Pagado'|'Observado'|'Rechaz
       [estado==='Pagado'?'VALIDADO':estado==='Observado'?'OBSERVADO':'RECHAZADO',usuario,ahora,motivoLimpio,comprobante.rows[0].id],
     );
     await registrarAuditoriaTx(c,{fecha:ahora,usuario,accion:estado==='Pagado'?'PAGO_VALIDADO':estado==='Observado'?'PAGO_OBSERVADO':'PAGO_RECHAZADO'});
+  });
+}
+
+export async function validarPagoSinComprobante(ref:string,usuario:string,motivo:string){
+  const motivoLimpio=motivo.trim();
+  if(!motivoLimpio) throw new Error('Debes indicar por qué se valida sin comprobante.');
+  await inTransaction(async c=>{
+    const ahora=new Date().toISOString();
+    const reserva=await c.query<{estado_pago:string|null}>(
+      `SELECT MAX(estado_pago) estado_pago FROM solicitudes WHERE referencia_reserva=$1 AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA' FOR UPDATE`,
+      [ref],
+    );
+    if(!reserva.rows.length) throw new Error('Reserva no encontrada.');
+    const comprobante=await c.query<{id:number}>(
+      `SELECT id FROM comprobantes_pago WHERE referencia_reserva=$1 ORDER BY id DESC LIMIT 1`,
+      [ref],
+    );
+    if(comprobante.rows[0]) throw new Error('La reserva ya tiene comprobante; debe procesarse desde la validación normal.');
+    await c.query(
+      `UPDATE solicitudes
+          SET estado_pago='Pagado',motivo_estado_pago=$1,fecha_modificacion=$2,modificado_por=$3
+        WHERE referencia_reserva=$4 AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA'`,
+      [`VALIDADO SIN COMPROBANTE: ${motivoLimpio}`,ahora,usuario,ref],
+    );
+    await registrarAuditoriaTx(c,{fecha:ahora,usuario,accion:'PAGO_VALIDADO_SIN_COMPROBANTE'});
   });
 }
