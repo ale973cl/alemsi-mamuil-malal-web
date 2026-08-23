@@ -1,0 +1,1 @@
+import { getSession } from '@/lib/auth/session'; import { HOME_BY_ROLE } from '@/lib/reglas/permisos'; import { redirect } from 'next/navigation'; export default async function Home(){ const u=await getSession(); redirect(u?HOME_BY_ROLE[u.rol]:'/login'); }

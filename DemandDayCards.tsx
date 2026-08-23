@@ -1,0 +1,7 @@
+import { formatFecha } from '@/lib/ui/format';
+type Row={fecha:string;servicio:string;cantidad:number};
+const order=['Desayuno','Almuerzo','Once','Cena'];
+export default function DemandDayCards({rows}:{rows:Row[]}){
+  const dates=[...new Set(rows.map(r=>String(r.fecha)))].sort();
+  return <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{dates.map(fecha=>{const day=rows.filter(r=>String(r.fecha)===fecha);const total=day.reduce((s,r)=>s+Number(r.cantidad||0),0);return <details key={fecha} className="rounded-2xl border border-[#E5EBE8] bg-[#FFFDF9] p-4"><summary className="cursor-pointer list-none"><div className="flex items-start justify-between"><div><div className="text-xs font-black uppercase tracking-[.08em] text-[#71807C]">Día</div><div className="mt-1 font-black text-[#17352E]">{formatFecha(fecha)}</div></div><div className="rounded-full bg-[#0B2B32] px-2.5 py-1 text-xs font-black text-white">{total}</div></div><div className="mt-3 space-y-1">{order.map(servicio=>{const value=day.filter(r=>String(r.servicio).toLowerCase()===servicio.toLowerCase()).reduce((s,r)=>s+Number(r.cantidad||0),0);return value?<div key={servicio} className="flex justify-between text-sm"><span>{servicio}</span><b>{value} raciones</b></div>:null})}</div></summary><div className="mt-3 border-t border-[#E5EBE8] pt-3 text-xs text-[#667572]">Selecciona la minuta del período para consultar platos, instituciones y comensales asociados.</div></details>})}</div>;
+}

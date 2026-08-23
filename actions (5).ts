@@ -1,0 +1,1 @@
+'use server'; import { guardarReclamo } from '@/lib/db/comensal-gestion'; import { redirect } from 'next/navigation'; export async function reclamoAction(fd:FormData){ await guardarReclamo(String(fd.get('rut')||''),String(fd.get('tipo')||''),String(fd.get('categoria')||''),String(fd.get('mensaje')||'')); redirect('/reclamos?ok=1'); }

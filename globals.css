@@ -1,0 +1,28 @@
+@import 'tailwindcss';
+
+:root {
+  --alemsi-green: #169B62;
+  --alemsi-navy: #0B2B32;
+  --alemsi-deep: #071814;
+  --alemsi-gold: #D4AF37;
+  --alemsi-gray-light: #DDE5E2;
+  --alemsi-gray-mid: #667572;
+  --alemsi-cream: #F4F7F5;
+  --alemsi-card: #FFFFFF;
+}
+
+html { background: var(--alemsi-cream); }
+body {
+  margin: 0;
+  background: linear-gradient(180deg, #fbfdfc 0%, var(--alemsi-cream) 100%);
+  color: var(--alemsi-deep);
+  font-family: Arial, Helvetica, sans-serif;
+}
+* { box-sizing: border-box; }
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--alemsi-green) 35%, transparent);
+  outline-offset: 2px;
+}
+summary::-webkit-details-marker { display:none; }
