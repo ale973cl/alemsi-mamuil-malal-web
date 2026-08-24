@@ -9,32 +9,42 @@ export type DemandaProduccion = {
   reservadas: number;
 };
 
+const demandaSql = `WITH base AS (
+  SELECT DISTINCT ON (s.rut,s.fecha,s.servicio)
+         s.id,s.rut,s.fecha,s.servicio,s.institucion,s.tipo_registro,s.estado_consumo,
+         TRIM(COALESCE(s.plato_reservado,s.plato)) AS plato,
+         COALESCE(
+           NULLIF(UPPER(TRIM(s.tipo_opcion)),''),
+           (SELECT UPPER(TRIM(m.tipo_opcion))
+              FROM minutas m
+             WHERE m.fecha=s.fecha AND m.servicio=s.servicio
+               AND m.activo=1 AND m.estado='PUBLICADA'
+               AND UPPER(TRIM(m.plato))=UPPER(TRIM(COALESCE(s.plato_reservado,s.plato)))
+             ORDER BY m.id DESC LIMIT 1),
+           (SELECT CASE WHEN COUNT(DISTINCT UPPER(TRIM(m2.tipo_opcion)))=1
+                        THEN MAX(UPPER(TRIM(m2.tipo_opcion))) END
+              FROM minutas m2
+             WHERE m2.fecha=s.fecha AND m2.servicio=s.servicio
+               AND m2.activo=1 AND m2.estado='PUBLICADA'),
+           'SIN OPCION'
+         ) AS tipo_opcion
+    FROM solicitudes s
+   WHERE s.fecha=$1
+     AND COALESCE(s.estado_reserva,'ACTIVA')='ACTIVA'
+     AND (COALESCE(s.tipo_registro,'RESERVA_COMERCIAL') <> 'CONSUMO_INTERNO'
+          OR s.estado_consumo='Consumirá')
+   ORDER BY s.rut,s.fecha,s.servicio,s.id DESC
+)
+SELECT servicio,tipo_opcion,MIN(plato) AS plato,COUNT(*)::int AS reservadas
+  FROM base
+ WHERE COALESCE(TRIM(plato),'')<>''
+ GROUP BY servicio,tipo_opcion,UPPER(TRIM(plato))`;
+
 export async function demandaFecha(fecha: string): Promise<DemandaProduccion[]> {
   return query<DemandaProduccion>(
-    `WITH base AS (
-       SELECT DISTINCT ON (s.rut,s.fecha,s.servicio)
-              s.id,s.rut,s.fecha,s.servicio,s.institucion,s.tipo_registro,s.estado_consumo,
-              COALESCE(s.plato_reservado,s.plato) AS plato,
-              COALESCE(NULLIF(TRIM(s.tipo_opcion),''),
-                (SELECT m.tipo_opcion
-                   FROM minutas m
-                  WHERE m.fecha=s.fecha AND m.servicio=s.servicio
-                    AND m.activo=1 AND m.estado='PUBLICADA'
-                    AND UPPER(TRIM(m.plato))=UPPER(TRIM(COALESCE(s.plato_reservado,s.plato)))
-                  ORDER BY m.id DESC LIMIT 1), '') AS tipo_opcion
-         FROM solicitudes s
-        WHERE s.fecha=$1
-          AND COALESCE(s.estado_reserva,'ACTIVA')='ACTIVA'
-          AND (COALESCE(s.tipo_registro,'RESERVA_COMERCIAL') <> 'CONSUMO_INTERNO'
-               OR s.estado_consumo='Consumirá')
-        ORDER BY s.rut,s.fecha,s.servicio,s.id DESC
-     )
-     SELECT servicio,tipo_opcion,plato,COUNT(*)::int AS reservadas
-       FROM base
-      WHERE COALESCE(TRIM(plato),'')<>''
-      GROUP BY servicio,tipo_opcion,plato
-      ORDER BY CASE servicio WHEN 'Desayuno' THEN 1 WHEN 'Almuerzo' THEN 2 WHEN 'Once' THEN 3 WHEN 'Cena' THEN 4 ELSE 5 END,
-               tipo_opcion,plato`,
+    `${demandaSql}
+     ORDER BY CASE servicio WHEN 'Desayuno' THEN 1 WHEN 'Almuerzo' THEN 2 WHEN 'Once' THEN 3 WHEN 'Cena' THEN 4 ELSE 5 END,
+              tipo_opcion,plato`,
     [fecha],
   );
 }
@@ -74,30 +84,7 @@ export async function iniciarJornada(fecha: string, usuario: string) {
       return { yaIniciada: true, sinMinuta: [], sinReceta: [], faltantesStock: [] };
     }
 
-    const demanda = await client.query<DemandaProduccion>(
-      `WITH base AS (
-         SELECT DISTINCT ON (s.rut,s.fecha,s.servicio)
-                s.id,s.rut,s.fecha,s.servicio,s.institucion,s.tipo_registro,s.estado_consumo,
-                COALESCE(s.plato_reservado,s.plato) AS plato,
-                COALESCE(NULLIF(TRIM(s.tipo_opcion),''),
-                  (SELECT m.tipo_opcion FROM minutas m
-                    WHERE m.fecha=s.fecha AND m.servicio=s.servicio
-                      AND m.activo=1 AND m.estado='PUBLICADA'
-                      AND UPPER(TRIM(m.plato))=UPPER(TRIM(COALESCE(s.plato_reservado,s.plato)))
-                    ORDER BY m.id DESC LIMIT 1), '') AS tipo_opcion
-           FROM solicitudes s
-          WHERE s.fecha=$1
-            AND COALESCE(s.estado_reserva,'ACTIVA')='ACTIVA'
-            AND (COALESCE(s.tipo_registro,'RESERVA_COMERCIAL') <> 'CONSUMO_INTERNO'
-                 OR s.estado_consumo='Consumirá')
-          ORDER BY s.rut,s.fecha,s.servicio,s.id DESC
-       )
-       SELECT servicio,tipo_opcion,plato,COUNT(*)::int AS reservadas
-         FROM base
-        WHERE COALESCE(TRIM(plato),'')<>''
-        GROUP BY servicio,tipo_opcion,plato`,
-      [fecha],
-    );
+    const demanda = await client.query<DemandaProduccion>(demandaSql, [fecha]);
 
     await client.query(
       `INSERT INTO jornadas_produccion (fecha,estado,inicio_at,usuario_inicio)
@@ -119,7 +106,7 @@ export async function iniciarJornada(fecha: string, usuario: string) {
          VALUES ($1,$2,$3,$4,$5,NULL,NULL)
          ON CONFLICT (fecha,servicio,tipo_opcion,plato)
          DO UPDATE SET reservadas=EXCLUDED.reservadas,producidas=NULL,entregadas=NULL,motivo_diferencia=NULL`,
-        [fecha, row.servicio, row.tipo_opcion || '', plato, porciones],
+        [fecha, row.servicio, row.tipo_opcion || 'SIN OPCION', plato, porciones],
       );
 
       const minuta = await client.query(
