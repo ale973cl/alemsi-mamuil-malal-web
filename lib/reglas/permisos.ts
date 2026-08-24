@@ -1,10 +1,11 @@
 import type { Rol } from '@/lib/auth/session';
 
-export type PortalRoute = '/admin-casino'|'/finanzas'|'/coordinacion'|'/cocina'|'/bodega'|'/operaciones'|'/gerencia';
+export type PortalRoute = '/admin-casino'|'/admin-casino/produccion'|'/finanzas'|'/coordinacion'|'/cocina'|'/bodega'|'/operaciones'|'/gerencia';
 export type PortalModule = { href:PortalRoute; label:string };
 
 const MODULOS = {
   administracion:{href:'/admin-casino',label:'Admin Casino'},
+  produccionAdmin:{href:'/admin-casino/produccion',label:'Producción · Admin'},
   finanzas:{href:'/finanzas',label:'Finanzas'},
   coordinacion:{href:'/coordinacion',label:'Coordinación'},
   cocina:{href:'/cocina',label:'Cocina y Producción'},
@@ -16,8 +17,8 @@ const MODULOS = {
 export const ROLE_LABEL:Record<Rol,string>={AdminTotal:'Administrador Total',AdminCasino:'Administrador Casino',Finanzas:'Finanzas',Cocina:'Cocina',Coordinacion:'Coordinación',Gerencia:'Gerencia',Bodega:'Bodega',Operaciones:'Operaciones'};
 
 export const MODULES_BY_ROLE:Record<Rol,readonly PortalModule[]>={
-  AdminTotal:[MODULOS.administracion,MODULOS.finanzas,MODULOS.coordinacion,MODULOS.cocina,MODULOS.bodega,MODULOS.operaciones,MODULOS.gerencia],
-  AdminCasino:[MODULOS.administracion,MODULOS.cocina],
+  AdminTotal:[MODULOS.administracion,MODULOS.produccionAdmin,MODULOS.finanzas,MODULOS.coordinacion,MODULOS.cocina,MODULOS.bodega,MODULOS.operaciones,MODULOS.gerencia],
+  AdminCasino:[MODULOS.administracion,MODULOS.produccionAdmin,MODULOS.cocina],
   Finanzas:[MODULOS.finanzas],
   Coordinacion:[MODULOS.coordinacion],
   Cocina:[MODULOS.cocina],
