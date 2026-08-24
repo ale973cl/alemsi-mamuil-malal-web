@@ -1,0 +1,1 @@
+ALEMSI September email assets. Reservation emails must reference assets through absolute public URLs.
