@@ -30,20 +30,17 @@ export async function obtenerReglasReserva(): Promise<ReglasReserva> {
   }
 }
 
-/**
- * Para comensales comerciales, cualquier reserva ACTIVA cuyo pago aún no esté
- * aprobado/pagado bloquea una nueva reserva, aunque el servicio sea futuro.
- * ALEMSI interno y Coordinadores no usan este bloqueo financiero.
- */
 export async function obtenerDeudaBloqueante(rut: string) {
   return query<{
     referencia_reserva:string;
+    codigo_reserva:string;
     primera_fecha:string;
     ultima_fecha:string;
     monto_pendiente:number;
     estados:string;
   }>(
-    `SELECT referencia_reserva,
+    `SELECT codigo_reserva AS referencia_reserva,
+            codigo_reserva,
             MIN(fecha)::text AS primera_fecha,
             MAX(fecha)::text AS ultima_fecha,
             SUM(COALESCE(precio_aplicado,precio,0))::numeric AS monto_pendiente,
@@ -53,10 +50,11 @@ export async function obtenerDeudaBloqueante(rut: string) {
         AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA'
         AND COALESCE(precio_aplicado,precio,0)>0
         AND COALESCE(tipo_registro,'RESERVA_COMERCIAL')='RESERVA_COMERCIAL'
+        AND COALESCE(NULLIF(codigo_reserva,''),'')<>''
         AND LOWER(TRIM(COALESCE(estado_pago,'Pendiente'))) NOT IN
             ('pagado','aprobado','no aplica','costo asumido','costo asumido / no cobrable')
-      GROUP BY referencia_reserva
-      ORDER BY MIN(fecha),referencia_reserva`,
+      GROUP BY codigo_reserva
+      ORDER BY MIN(fecha),codigo_reserva`,
     [normalizarRutDb(rut)],
   );
 }
@@ -72,20 +70,24 @@ async function excepcionReservaActiva(rut: string, fecha: string): Promise<boole
   return Boolean(rows[0]);
 }
 
-function referenciaReserva(rut: string): string {
-  const now = new Date();
-  const p = (n: number) => String(n).padStart(2, '0');
-  const sello = `${now.getFullYear()}${p(now.getMonth() + 1)}${p(now.getDate())}${p(now.getHours())}${p(now.getMinutes())}`;
-  const rutCorto = limpiarRut(rut).slice(-5, -1) || '0000';
-  return `MM-${sello}-${rutCorto}-${crypto.randomInt(1000, 10_000)}`;
-}
-
 async function codigoReservaPublico(): Promise<string> {
-  const now = new Date();
-  const p = (n: number) => String(n).padStart(2, '0');
-  const prefijo = `R-${p(now.getDate())}${p(now.getMonth() + 1)}-${p(now.getHours())}${p(now.getMinutes())}-`;
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Santiago',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    })
+      .formatToParts(new Date())
+      .filter((part) => part.type !== 'literal')
+      .map((part) => [part.type, part.value]),
+  ) as Record<string, string>;
+  const prefijo = `R-${parts.day}${parts.month}${parts.year.slice(-2)}-${parts.hour}${parts.minute}-`;
   const rows = await query<{ codigo_reserva: string | null }>(
-    `SELECT codigo_reserva FROM solicitudes WHERE codigo_reserva LIKE $1 ORDER BY id DESC LIMIT 100`,
+    `SELECT codigo_reserva FROM solicitudes WHERE codigo_reserva LIKE $1 ORDER BY id DESC LIMIT 1000`,
     [`${prefijo}%`],
   );
   const usados = new Set(rows.map((row) => String(row.codigo_reserva ?? '')));
@@ -121,7 +123,6 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
   if (!fechas.length) throw new Error('No hay fechas seleccionadas.');
   validarEleccionesPorDia(fechas, input.elecciones, institucion);
 
-  // Las restricciones de modalidad existentes también se validan en servidor.
   if (tipo === 'administrativos' && input.elecciones.some((item) => item.servicio !== 'Almuerzo')) {
     throw new Error('ALEMSI Administrativos solo puede reservar Almuerzo.');
   }
@@ -143,10 +144,8 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
     }
   }
 
-  // Nadie, incluido ALEMSI interno, puede crear una segunda reserva activa para el mismo día.
-  const existentes = await query<{fecha:string;referencia_reserva:string|null;codigo_reserva:string|null}>(
+  const existentes = await query<{fecha:string;codigo_reserva:string|null}>(
     `SELECT fecha::text AS fecha,
-            MAX(referencia_reserva) AS referencia_reserva,
             MAX(codigo_reserva) AS codigo_reserva
        FROM solicitudes
       WHERE rut=$1
@@ -172,8 +171,8 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
   }
 
   const precioPersona = await obtenerPrecioPersona(rut, institucion);
-  const referencia = referenciaReserva(rut);
   const codigoPublico = await codigoReservaPublico();
+  const referencia = codigoPublico;
   const pagoToken = !esAlem && !esCoordinador ? crypto.randomBytes(32).toString('base64url') : '';
   const ahora = new Date().toISOString();
   const metodo = esAlem
@@ -188,7 +187,6 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
   }
 
   await inTransaction(async (client) => {
-    // Bloqueo por RUT+día evita carreras simultáneas con servicios distintos.
     for (const fecha of fechas) {
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${rut}|${fecha}|DIA`]);
       const duplicado = await client.query(
@@ -241,12 +239,12 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
     }
 
     if (pagoToken) {
-      await client.query('UPDATE solicitudes SET pago_token=$1 WHERE referencia_reserva=$2', [pagoToken, referencia]);
+      await client.query('UPDATE solicitudes SET pago_token=$1 WHERE codigo_reserva=$2', [pagoToken, codigoPublico]);
     }
   });
 
   return {
-    referencia,
+    referencia: codigoPublico,
     codigoReserva: codigoPublico,
     pagoToken,
     total: esAlem ? 0 : fechas.length * precioPersona.precio,
