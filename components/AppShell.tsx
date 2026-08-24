@@ -5,8 +5,37 @@ import { HOME_BY_ROLE, MODULES_BY_ROLE, ROLE_LABEL } from '@/lib/reglas/permisos
 
 export default function AppShell({user,children}:{user:SessionUser;children:React.ReactNode}){
   const links=MODULES_BY_ROLE[user.rol];
+  const roleLabel=ROLE_LABEL[user.rol];
+
   return <div className="min-h-screen bg-[#F6F3EA] text-[#071814]">
-    <header className="border-b border-[#A6B0AA]/30 bg-[#FFFDF8]"><div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4"><div><div className="text-xs font-extrabold tracking-[.22em] text-[#1DB954]">ALEMSI</div><div className="font-extrabold text-[#0E2A23]">Mamuil Malal · {ROLE_LABEL[user.rol]}</div></div><div className="text-right text-sm"><b>{user.nombre}</b><div className="text-xs text-[#6B7570]">{ROLE_LABEL[user.rol]}</div></div></div></header>
-    <div className="mx-auto grid max-w-7xl gap-5 px-4 py-5 lg:grid-cols-[220px_1fr]"><aside className="rounded-2xl border border-[#A6B0AA]/25 bg-white p-3 shadow-sm"><Link href={HOME_BY_ROLE[user.rol]} className="mb-3 block rounded-xl border px-3 py-2 text-sm font-bold">Inicio</Link><nav className="space-y-1">{links.map(({href,label})=><Link key={href} href={href} className="block rounded-xl px-3 py-2 text-sm font-bold text-[#0E2A23] hover:bg-[#1DB954]/10">{label}</Link>)}</nav><form action={logoutAction} className="mt-4 border-t pt-3"><button className="w-full rounded-xl border border-[#A6B0AA]/40 px-3 py-2 text-sm font-bold">Cerrar sesión</button></form></aside><main className="min-w-0">{children}</main></div>
+    <header className="border-b border-[#A6B0AA]/30 bg-[#FFFDF8] shadow-sm">
+      <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-xs font-extrabold tracking-[.22em] text-[#1DB954]">ALEMSI</div>
+              <div className="truncate text-base font-extrabold text-[#0E2A23]">Mamuil Malal · {roleLabel}</div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+            <div className="min-w-0 text-left lg:text-right">
+              <div className="truncate text-sm font-extrabold text-[#0E2A23]">Hola, {user.nombre}</div>
+              <div className="text-xs font-semibold text-[#6B7570]">{roleLabel}</div>
+            </div>
+            <form action={logoutAction}>
+              <button className="rounded-xl border border-[#A6B0AA]/45 bg-white px-3 py-2 text-sm font-bold text-[#0E2A23] hover:bg-[#F6F3EA]">Cerrar sesión</button>
+            </form>
+          </div>
+        </div>
+
+        <nav className="mt-3 flex flex-wrap gap-2 border-t border-[#A6B0AA]/25 pt-3">
+          <Link href={HOME_BY_ROLE[user.rol]} className="rounded-xl border border-[#0E2A23]/25 bg-white px-3 py-2 text-sm font-bold text-[#0E2A23] hover:bg-[#1DB954]/10">Inicio</Link>
+          {links.map(({href,label})=><Link key={href} href={href} className="rounded-xl border border-transparent px-3 py-2 text-sm font-bold text-[#0E2A23] hover:border-[#A6B0AA]/35 hover:bg-[#1DB954]/10">{label}</Link>)}
+        </nav>
+      </div>
+    </header>
+
+    <main className="mx-auto min-w-0 max-w-7xl px-4 py-5 sm:px-6">{children}</main>
   </div>;
 }
