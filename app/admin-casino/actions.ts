@@ -22,10 +22,16 @@ export async function reglasAction(fd: FormData) {
 
 export async function minutaAction(fd: FormData) {
   const u = await requireUser(['AdminCasino', 'AdminTotal']);
-  await guardarMinuta({id:fd.get('id')?Number(fd.get('id')):undefined,fecha:String(fd.get('fecha')||''),servicio:String(fd.get('servicio')||''),tipo_opcion:String(fd.get('tipo_opcion')||''),plato:String(fd.get('plato')||'')},u.username);
+  const fecha=String(fd.get('fecha')||'');
+  await guardarMinuta({id:fd.get('id')?Number(fd.get('id')):undefined,fecha,servicio:String(fd.get('servicio')||''),tipo_opcion:String(fd.get('tipo_opcion')||''),plato:String(fd.get('plato')||'')},u.username);
+  if(fecha) await publicarMinutaDirecta(fecha,fecha,u.username,u.rol);
   revalidatePath('/admin-casino');
+  revalidatePath('/cocina');
+  revalidatePath('/gerencia');
+  revalidatePath('/reserva');
 }
 
+// Se conserva por compatibilidad histórica, pero Coordinación ya no es requisito operativo.
 export async function enviarAction(fd: FormData) {
   const u = await requireUser(['AdminCasino', 'AdminTotal']);
   await enviarCoordinacion(String(fd.get('inicio')),String(fd.get('fin')),u.username);
@@ -52,8 +58,17 @@ export async function publicarDirectoAction(fd:FormData){
 export async function guardarMinutasAction(rows: FilaMinutaInput[]) {
   const u = await requireUser(['AdminCasino', 'AdminTotal']);
   const result=await guardarMinutas(rows,u.username);
-  if(result.ok) revalidatePath('/admin-casino');
-  return result;
+  if(!result.ok) return result;
+
+  const fechas=[...new Set(rows.map(row=>String(row.fecha||'')).filter(Boolean))].sort();
+  if(!fechas.length) return {ok:false as const,errores:[{fila:0,campo:'fecha',mensaje:'No hay fechas válidas para publicar.'}]};
+
+  await publicarMinutaDirecta(fechas[0],fechas[fechas.length-1],u.username,u.rol);
+  revalidatePath('/admin-casino');
+  revalidatePath('/cocina');
+  revalidatePath('/gerencia');
+  revalidatePath('/reserva');
+  return {...result,publicada:true as const};
 }
 
 export async function autorizacionExternaAction(fd: FormData) {
