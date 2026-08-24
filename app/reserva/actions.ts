@@ -3,8 +3,7 @@
 import { headers } from 'next/headers';
 import { after } from 'next/server';
 import { crearComensal, listarInstitucionesActivas, obtenerComensal, obtenerPrecioPersona } from '@/lib/db/comensales';
-import { correoReservaConfirmada } from '@/lib/email/notificaciones';
-import { enviarCorreoSmtp } from '@/lib/email/smtp';
+import { notificarReservaConfirmada } from '@/lib/email/notificaciones';
 import { obtenerMinutasRango } from '@/lib/db/minutas';
 import { crearOActualizarReserva, obtenerDeudaBloqueante, obtenerReglasReserva } from '@/lib/db/reservas';
 import { setComensalSession } from '@/lib/auth/comensal-session';
@@ -71,17 +70,21 @@ export async function confirmarReserva(input: { rut: string; elecciones: Eleccio
     const proto = h.get('x-forwarded-proto') || 'https';
 
     if (result.correo && host) {
-      const mensaje = correoReservaConfirmada({
+      const mensaje = {
         correo: result.correo,
         codigo: result.codigoReserva,
-        referencia: result.referencia,
+        referencia: result.codigoReserva,
         pagoToken: result.pagoToken,
         origin: `${proto}://${host}`,
-      });
+        rut: normalizarRutVisible(input.rut),
+        total: result.total,
+        method: input.metodoPago || (result.esAlem ? 'Interno ALEMSI' : result.esCoordinador ? 'Costo asumido · Coordinadores' : 'Transferencia bancaria'),
+        choices: input.elecciones,
+      };
       after(async () => {
         console.info('RESERVA_SMTP_START');
         try {
-          const correo = await enviarCorreoSmtp(mensaje);
+          const correo = await notificarReservaConfirmada(mensaje);
           if (correo.ok) console.info('RESERVA_SMTP_OK');
           else console.error('RESERVA_SMTP_ERROR', correo.errorType);
         } catch {
