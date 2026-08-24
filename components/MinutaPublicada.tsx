@@ -12,9 +12,71 @@ function fechaLarga(fecha:string){
   return new Intl.DateTimeFormat('es-CL',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'America/Santiago'}).format(new Date(Date.UTC(y,m-1,d,12)));
 }
 
-export default function MinutaPublicada({rows,empty='No existe minuta publicada para el período.'}:{rows:MinutaRow[];empty?:string}){
+function fechaCorta(fecha:string){
+  const [y,m,d]=fecha.split('-').map(Number);
+  if(!y||!m||!d) return fecha;
+  return new Intl.DateTimeFormat('es-CL',{weekday:'short',day:'2-digit',month:'2-digit',timeZone:'America/Santiago'}).format(new Date(Date.UTC(y,m-1,d,12)));
+}
+
+function semanaKey(fecha:string){
+  const [y,m,d]=fecha.split('-').map(Number);
+  const dt=new Date(Date.UTC(y,m-1,d,12));
+  const dow=(dt.getUTCDay()+6)%7;
+  const monday=new Date(dt); monday.setUTCDate(dt.getUTCDate()-dow);
+  return monday.toISOString().slice(0,10);
+}
+
+export default function MinutaPublicada({rows,empty='No existe minuta publicada para el período.',compactWeekly=false}:{rows:MinutaRow[];empty?:string;compactWeekly?:boolean}){
   const hoy=hoyChile();
   const fechas=[...new Set(rows.map(row=>String(row.fecha)))].sort();
+
+  if(compactWeekly){
+    const semanas=[...new Set(fechas.map(semanaKey))];
+    return <div className="mt-3 space-y-4">
+      {semanas.map((semana,index)=>{
+        const dias=fechas.filter(f=>semanaKey(f)===semana);
+        return <section key={semana} className="rounded-xl border border-[#A6B0AA]/30 bg-white p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-black text-[#0E2A23]">Semana {index+1}</h3>
+            <span className="text-[11px] font-bold text-[#6B7570]">{fechaCorta(dias[0])} → {fechaCorta(dias[dias.length-1])}</span>
+          </div>
+          <div className="overflow-x-auto pb-1">
+            <div className="grid min-w-[900px] gap-2" style={{gridTemplateColumns:`repeat(${dias.length}, minmax(150px, 1fr))`}}>
+              {dias.map(fecha=>{
+                const filas=rows.filter(row=>String(row.fecha)===fecha);
+                const servicios=[...new Set(filas.map(row=>row.servicio))].sort((a,b)=>{
+                  const ia=ORDEN_SERVICIO.indexOf(a); const ib=ORDEN_SERVICIO.indexOf(b);
+                  return (ia<0?99:ia)-(ib<0?99:ib);
+                });
+                const esHoy=fecha===hoy;
+                return <article key={fecha} className={`rounded-lg border p-2 ${esHoy?'border-[#1DB954] bg-[#1DB954]/5':'border-[#A6B0AA]/25 bg-[#FFFDF8]'}`}>
+                  <div className="mb-2 flex items-center justify-between gap-1 border-b border-[#A6B0AA]/20 pb-1.5">
+                    <div className="text-[11px] font-black capitalize text-[#0E2A23]">{fechaCorta(fecha)}</div>
+                    {esHoy&&<span className="rounded-full bg-[#1DB954] px-1.5 py-0.5 text-[9px] font-black">HOY</span>}
+                  </div>
+                  <div className="space-y-2">
+                    {servicios.map(servicio=>{
+                      const opciones=filas.filter(row=>row.servicio===servicio);
+                      return <div key={servicio}>
+                        <div className="mb-1 text-[10px] font-black uppercase tracking-wide text-[#0B3B78]">{servicio}</div>
+                        <div className="space-y-1">
+                          {opciones.map((row,i)=><div key={`${row.servicio}-${row.tipo_opcion}-${row.plato}-${i}`} className="rounded-md bg-white px-2 py-1.5 shadow-sm">
+                            <div className="text-[9px] font-extrabold uppercase text-[#1DB954]">{row.tipo_opcion||'Sin opción'}</div>
+                            <div className="mt-0.5 text-[11px] font-bold leading-tight text-[#0E2A23]">{row.plato}</div>
+                          </div>)}
+                        </div>
+                      </div>;
+                    })}
+                  </div>
+                </article>;
+              })}
+            </div>
+          </div>
+        </section>;
+      })}
+      {!rows.length&&<p className="rounded-xl bg-[#F6F3EA] p-4 text-sm text-[#6B7570]">{empty}</p>}
+    </div>;
+  }
 
   return <div className="mt-4 space-y-5">
     {fechas.map(fecha=>{
