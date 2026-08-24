@@ -9,54 +9,21 @@ import { obtenerMinutasRango } from '@/lib/db/minutas';
 import { iniciarAction } from './actions';
 
 export const dynamic='force-dynamic';
-
-function fechaChile(date=new Date()){
-  return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Santiago',year:'numeric',month:'2-digit',day:'2-digit'}).format(date);
-}
+function fechaChile(date=new Date()){return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Santiago',year:'numeric',month:'2-digit',day:'2-digit'}).format(date);}
 function fechaValida(value?:string){return Boolean(value&&/^\d{4}-\d{2}-\d{2}$/.test(value))}
 
 export default async function Page({searchParams}:{searchParams:Promise<{fecha?:string;inicio?:string;fin?:string}>}){
-  const u=await requireUser(['Cocina','AdminCasino','AdminTotal']);
-  const q=await searchParams;
-  const hoy=fechaChile();
-  const fecha=fechaValida(q.fecha)?q.fecha!:hoy;
-  const finDefaultDate=new Date(); finDefaultDate.setDate(finDefaultDate.getDate()+6);
-  const inicio=fechaValida(q.inicio)?q.inicio!:hoy;
-  const fin=fechaValida(q.fin)&&q.fin!>=inicio?q.fin!:fechaChile(finDefaultDate);
-
-  const [rows,j,detalle,minuta,personas]=await Promise.all([
-    demandaFecha(fecha), jornada(fecha), detalleJornada(fecha), obtenerMinutasRango(inicio,fin), detalleProduccionFecha(fecha),
-  ]);
-  const estado=String(j?.estado||'Pendiente');
-  const total=rows.reduce((sum,row)=>sum+Number(row.reservadas||0),0);
-  const servicios=[...new Set(personas.map(r=>r.servicio))];
-
+  const u=await requireUser(['Cocina','AdminCasino','AdminTotal']); const q=await searchParams; const hoy=fechaChile(); const fecha=fechaValida(q.fecha)?q.fecha!:hoy;
+  const finDefaultDate=new Date();finDefaultDate.setDate(finDefaultDate.getDate()+6);const inicio=fechaValida(q.inicio)?q.inicio!:hoy;const fin=fechaValida(q.fin)&&q.fin!>=inicio?q.fin!:fechaChile(finDefaultDate);
+  const [rows,j,detalle,minuta,personas]=await Promise.all([demandaFecha(fecha),jornada(fecha),detalleJornada(fecha),obtenerMinutasRango(inicio,fin),detalleProduccionFecha(fecha)]);
+  const estado=String(j?.estado||'Pendiente'); const total=rows.reduce((sum,row)=>sum+Number(row.reservadas||0),0); const servicios=[...new Set(personas.map(r=>r.servicio))];
   return <AppShell user={u}><div className="space-y-5">
-    <section className="rounded-2xl border border-[#A6B0AA]/25 bg-white p-5">
-      <p className="text-xs font-extrabold tracking-[.18em] text-[#1DB954]">COCINA / PRODUCCIÓN</p>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div><h1 className="text-2xl font-black">Producción del día</h1><p className="text-sm text-[#6B7570]">Reserva = demanda. Producción deduplica RUT + fecha + servicio. Bodega solo se descuenta al iniciar jornada.</p></div>
-        <div className="flex flex-wrap items-end gap-2"><form className="flex items-end gap-2"><input type="hidden" name="inicio" value={inicio}/><input type="hidden" name="fin" value={fin}/><label className="text-sm font-bold">Día de producción<input type="date" name="fecha" defaultValue={fecha} className="mt-1 block rounded-lg border p-2"/></label><button className="rounded-lg border px-3 py-2 font-bold">Consultar</button></form><Link href={`/produccion/reporte?fecha=${encodeURIComponent(fecha)}&origen=cocina`} className="rounded-lg bg-[#0D9B91] px-4 py-2 text-sm font-black text-white">Ver reporte diario →</Link></div>
-      </div>
+    <section className="rounded-2xl border border-[#A6B0AA]/25 bg-white p-5"><p className="text-xs font-extrabold tracking-[.18em] text-[#1DB954]">COCINA / PRODUCCIÓN</p><div className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-black">Producción del día</h1><p className="text-sm text-[#6B7570]">Reserva = demanda. Producción deduplica RUT + fecha + servicio.</p></div><div className="flex flex-wrap items-end gap-2"><form className="flex items-end gap-2"><input type="hidden" name="inicio" value={inicio}/><input type="hidden" name="fin" value={fin}/><label className="text-sm font-bold">Día de producción<input type="date" name="fecha" defaultValue={fecha} className="mt-1 block rounded-lg border p-2"/></label><button className="rounded-lg border px-3 py-2 font-bold">Consultar</button></form><Link href={`/produccion/reporte?fecha=${encodeURIComponent(fecha)}&origen=cocina`} className="rounded-lg border border-[#0D9B91] px-4 py-2 text-sm font-black text-[#0D9B91]">Vista reporte</Link><a href={`/api/produccion/reporte-pdf?fecha=${encodeURIComponent(fecha)}`} target="_blank" rel="noreferrer" className="rounded-lg bg-[#0B3B78] px-4 py-2 text-sm font-black text-white">Generar PDF real</a></div></div>
       <div className="mt-5 grid gap-3 md:grid-cols-3"><div className="rounded-xl bg-[#F6F3EA] p-4"><span className="text-sm">Raciones</span><div className="text-3xl font-black">{total}</div></div><div className="rounded-xl bg-[#F6F3EA] p-4"><span className="text-sm">Preparaciones</span><div className="text-3xl font-black">{rows.length}</div></div><div className="rounded-xl bg-[#F6F3EA] p-4"><span className="text-sm">Jornada</span><div className="text-xl font-black">{estado}</div></div></div>
-      <h2 className="mt-5 text-xl font-black">Reporte de demanda por servicio</h2>
-      <div className="mt-3 grid gap-3 md:grid-cols-2">{rows.map((r,i)=><div key={i} className="rounded-xl border p-4"><div className="text-xs font-bold text-[#6B7570]">{r.servicio} · {r.tipo_opcion||'—'}</div><div className="font-black">{r.plato}</div><div className="mt-1 text-2xl font-black text-[#0E2A23]">{r.reservadas} porciones</div></div>)}</div>
+      <h2 className="mt-5 text-xl font-black">Reporte de demanda por servicio</h2><div className="mt-3 grid gap-3 md:grid-cols-2">{rows.map((r,i)=><div key={i} className="rounded-xl border p-4"><div className="text-xs font-bold text-[#6B7570]">{r.servicio} · {r.tipo_opcion||'—'}</div><div className="font-black">{r.plato}</div><div className="mt-1 text-2xl font-black text-[#0E2A23]">{r.reservadas} porciones</div></div>)}</div>
       <div className="mt-5 rounded-xl bg-[#F6F3EA] p-4"><div className="font-bold">Estado de jornada: {estado}</div>{estado==='Pendiente'&&<form action={iniciarAction} className="mt-3 flex flex-wrap gap-2"><input type="hidden" name="fecha" value={fecha}/><label className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm"><input type="checkbox" name="confirmacion" required/> Confirmo iniciar la jornada completa</label><button className="rounded-lg bg-[#1DB954] px-4 py-2 font-bold">Iniciar jornada</button></form>}{estado==='En producción'&&<CierreJornada fecha={fecha} rows={detalle}/>} {estado==='Finalizado'&&<div className="mt-3 rounded-lg bg-[#1DB954]/10 p-3 font-bold">Jornada finalizada.</div>}</div>
     </section>
-
-    <section className="rounded-2xl border border-[#A6B0AA]/25 bg-white p-5">
-      <div><p className="text-xs font-extrabold tracking-[.18em] text-[#1DB954]">DETALLE OPERATIVO</p><h2 className="text-xl font-black">Comensales por preparación</h2><p className="mt-1 text-sm text-[#6B7570]">Solo lectura. Usa la misma demanda de reservas; no modifica el inicio ni cierre de jornada.</p></div>
-      {!personas.length&&<div className="mt-4 rounded-xl bg-[#F6F3EA] p-4 text-sm font-bold">No hay comensales con plato reservado para esta fecha.</div>}
-      <div className="mt-4 space-y-5">{servicios.map(servicio=>{
-        const sr=personas.filter(r=>r.servicio===servicio);
-        const platos=[...new Set(sr.map(r=>`${r.tipo_opcion}|||${r.plato}`))];
-        return <div key={servicio} className="rounded-2xl border p-4"><div className="mb-3 flex items-center justify-between gap-3"><h3 className="text-lg font-black">{servicio}</h3><span className="rounded-full bg-[#1DB954]/10 px-3 py-1 text-sm font-black">{sr.length} raciones</span></div><div className="space-y-3">{platos.map(key=>{const [opcion,plato]=key.split('|||');const pr=sr.filter(r=>r.tipo_opcion===opcion&&r.plato===plato);const insts=[...new Set(pr.map(r=>r.institucion))];return <article key={key} className="overflow-hidden rounded-xl border"><div className="bg-[#F6F3EA] p-3"><div className="text-xs font-bold text-[#6B7570]">{opcion||'Sin opción'}</div><div className="flex items-start justify-between gap-3"><div className="font-black">{plato}</div><div className="shrink-0 font-black">{pr.length}</div></div></div><div className="divide-y">{insts.map(inst=>{const ps=pr.filter(r=>r.institucion===inst);return <div key={inst} className="grid gap-1 p-3 sm:grid-cols-[180px_1fr_auto]"><div className="font-bold text-[#0E2A23]">{inst}</div><div className="text-sm text-[#4A5550]">{ps.map(p=>p.nombre).join(', ')}</div><div className="text-sm font-black">{ps.length}</div></div>})}</div></article>})}</div></div>
-      })}</div>
-    </section>
-
-    <section className="rounded-2xl border bg-white p-5">
-      <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-black">Minuta oficial publicada · solo lectura</h2><p className="text-sm text-[#6B7570]">Consulta varios días sin cambiar la jornada de producción seleccionada arriba.</p></div><form className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"><input type="hidden" name="fecha" value={fecha}/><label className="text-sm font-bold">Desde<input type="date" name="inicio" defaultValue={inicio} className="mt-1 block rounded-lg border p-2"/></label><label className="text-sm font-bold">Hasta<input type="date" name="fin" defaultValue={fin} className="mt-1 block rounded-lg border p-2"/></label><button className="self-end rounded-lg border px-4 py-2 font-bold">Consultar minuta</button></form></div>
-      <MinutaPublicada rows={minuta}/>
-    </section>
+    <section className="rounded-2xl border border-[#A6B0AA]/25 bg-white p-5"><div><p className="text-xs font-extrabold tracking-[.18em] text-[#1DB954]">DETALLE OPERATIVO</p><h2 className="text-xl font-black">Comensales por preparación</h2><p className="mt-1 text-sm text-[#6B7570]">Solo lectura. La salida PDF usa estos mismos datos.</p></div>{!personas.length&&<div className="mt-4 rounded-xl bg-[#F6F3EA] p-4 text-sm font-bold">No hay comensales con plato reservado para esta fecha.</div>}<div className="mt-4 space-y-5">{servicios.map(servicio=>{const sr=personas.filter(r=>r.servicio===servicio);const platos=[...new Set(sr.map(r=>`${r.tipo_opcion}|||${r.plato}`))];return <div key={servicio} className="rounded-2xl border p-4"><div className="mb-3 flex items-center justify-between gap-3"><h3 className="text-lg font-black">{servicio}</h3><span className="rounded-full bg-[#1DB954]/10 px-3 py-1 text-sm font-black">{sr.length} raciones</span></div><div className="space-y-3">{platos.map(key=>{const [opcion,plato]=key.split('|||');const pr=sr.filter(r=>r.tipo_opcion===opcion&&r.plato===plato);const insts=[...new Set(pr.map(r=>r.institucion))];return <article key={key} className="overflow-hidden rounded-xl border"><div className="bg-[#F6F3EA] p-3"><div className="text-xs font-bold text-[#6B7570]">{opcion||'Sin opción'}</div><div className="flex items-start justify-between gap-3"><div className="font-black">{plato}</div><div className="shrink-0 font-black">{pr.length}</div></div></div><div className="divide-y">{insts.map(inst=>{const ps=pr.filter(r=>r.institucion===inst);return <div key={inst} className="grid gap-1 p-3 sm:grid-cols-[180px_1fr_auto]"><div className="font-bold text-[#0E2A23]">{inst}</div><div className="text-sm text-[#4A5550]">{ps.map(p=>p.nombre).join(', ')}</div><div className="text-sm font-black">{ps.length}</div></div>})}</div></article>})}</div></div>})}</div></section>
+    <section className="rounded-2xl border bg-white p-5"><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-black">Minuta oficial publicada · solo lectura</h2><p className="text-sm text-[#6B7570]">Consulta varios días sin cambiar la jornada seleccionada.</p></div><form className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"><input type="hidden" name="fecha" value={fecha}/><label className="text-sm font-bold">Desde<input type="date" name="inicio" defaultValue={inicio} className="mt-1 block rounded-lg border p-2"/></label><label className="text-sm font-bold">Hasta<input type="date" name="fin" defaultValue={fin} className="mt-1 block rounded-lg border p-2"/></label><button className="self-end rounded-lg border px-4 py-2 font-bold">Consultar minuta</button></form></div><MinutaPublicada rows={minuta}/></section>
   </div></AppShell>
 }
