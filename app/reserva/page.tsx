@@ -1,4 +1,4 @@
-import ReservaWizard from '@/components/ReservaWizard';
+import ReservaWizardV2 from '@/components/ReservaWizardV2';
 import ComensalNav from '@/components/ComensalNav';
 import { getComensalSession } from '@/lib/auth/comensal-session';
 
@@ -19,7 +19,7 @@ export default async function ReservaPage() {
         </div>
       </header>
       <div className="mx-auto max-w-6xl px-4 pt-5 sm:px-6"><div className="flex flex-wrap gap-2"><a href="/mis-reservas" className="rounded-lg border bg-white px-3 py-2 text-sm font-bold">Mis reservas</a><a href="/reclamos" className="rounded-lg border bg-white px-3 py-2 text-sm font-bold">Reclamos / experiencia del cliente</a></div></div>
-      <ReservaWizard initialRut={session?.rut||''}/>
+      <ReservaWizardV2 initialRut={session?.rut||''}/>
     </main>
   );
 }
