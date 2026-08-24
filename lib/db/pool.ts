@@ -16,9 +16,13 @@ export function db(): Pool {
   if (!global.__alemsiPool) {
     global.__alemsiPool = new Pool({
       connectionString: databaseUrl(),
-      max: 5,
-      idleTimeoutMillis: 30_000,
+      // Vercel puede ejecutar varias instancias en paralelo y Supabase session mode
+      // limita el total de clientes. Un solo cliente por instancia evita agotar el
+      // pool global; las consultas concurrentes quedan en cola dentro de pg.
+      max: 1,
+      idleTimeoutMillis: 10_000,
       connectionTimeoutMillis: 10_000,
+      allowExitOnIdle: true,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
     });
   }
