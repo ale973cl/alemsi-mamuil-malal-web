@@ -1,6 +1,7 @@
 'use server';
 
 import { headers } from 'next/headers';
+import { after } from 'next/server';
 import { crearComensal, listarInstitucionesActivas, obtenerComensal, obtenerPrecioPersona } from '@/lib/db/comensales';
 import { correoReservaConfirmada } from '@/lib/email/notificaciones';
 import { enviarCorreoSmtp } from '@/lib/email/smtp';
@@ -68,13 +69,31 @@ export async function confirmarReserva(input: { rut: string; elecciones: Eleccio
     const h = await headers();
     const host = h.get('x-forwarded-host') || h.get('host');
     const proto = h.get('x-forwarded-proto') || 'https';
-    let correo: Awaited<ReturnType<typeof enviarCorreoSmtp>> | null = null;
-    console.info('RESERVA_SMTP_START');
-    try {
-      if (!result.correo || !host) correo = { ok: false, errorType: 'configuration' };
-      else correo = await enviarCorreoSmtp(correoReservaConfirmada({ correo: result.correo, codigo: result.codigoReserva, referencia: result.referencia, pagoToken: result.pagoToken, origin: `${proto}://${host}` }));
-      if (correo.ok) console.info('RESERVA_SMTP_OK'); else console.error('RESERVA_SMTP_ERROR', correo.errorType);
-    } catch { correo = { ok: false, errorType: 'protocol' }; console.error('RESERVA_SMTP_ERROR', 'protocol'); }
-    return { ok: true as const, result: { ...result, correo } };
-  } catch (error) { return { ok: false as const, error: error instanceof Error ? error.message : 'No fue posible registrar la reserva.' }; }
+
+    if (result.correo && host) {
+      const mensaje = correoReservaConfirmada({
+        correo: result.correo,
+        codigo: result.codigoReserva,
+        referencia: result.referencia,
+        pagoToken: result.pagoToken,
+        origin: `${proto}://${host}`,
+      });
+      after(async () => {
+        console.info('RESERVA_SMTP_START');
+        try {
+          const correo = await enviarCorreoSmtp(mensaje);
+          if (correo.ok) console.info('RESERVA_SMTP_OK');
+          else console.error('RESERVA_SMTP_ERROR', correo.errorType);
+        } catch {
+          console.error('RESERVA_SMTP_ERROR', 'protocol');
+        }
+      });
+    } else {
+      console.error('RESERVA_SMTP_ERROR', 'configuration');
+    }
+
+    return { ok: true as const, result: { ...result, correo: { ok: true as const, deferred: true as const } } };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : 'No fue posible registrar la reserva.' };
+  }
 }
