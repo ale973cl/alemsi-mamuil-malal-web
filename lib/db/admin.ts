@@ -56,8 +56,9 @@ export async function guardarMinutas(rows:FilaMinutaInput[],u:string){
     for(let index=0;index<normalizadas.length;index++){
       const row=normalizadas[index];
       const existentes=await c.query<{id:number}>(`SELECT id FROM minutas WHERE COALESCE(activo,1)=1 AND fecha=$1 AND servicio=$2 AND UPPER(TRIM(tipo_opcion))=$3 ORDER BY id FOR UPDATE`,[row.fecha,row.servicio,row.tipo_opcion]);
-      if(existentes.rowCount>1){
-        return {ok:false as const,errores:[{fila:index+1,campo:'opcion',mensaje:`La base ya contiene ${existentes.rowCount} registros activos para ${row.fecha} · ${row.servicio} · ${row.tipo_opcion}. Corrige ese duplicado antes de continuar.`}]};
+      const cantidadExistentes=Number(existentes.rowCount||0);
+      if(cantidadExistentes>1){
+        return {ok:false as const,errores:[{fila:index+1,campo:'opcion',mensaje:`La base ya contiene ${cantidadExistentes} registros activos para ${row.fecha} · ${row.servicio} · ${row.tipo_opcion}. Corrige ese duplicado antes de continuar.`}]};
       }
       if(existentes.rows[0]){
         await c.query(`UPDATE minutas SET plato=$1,activo=1,estado='PUBLICABLE' WHERE id=$2`,[row.plato,existentes.rows[0].id]);
