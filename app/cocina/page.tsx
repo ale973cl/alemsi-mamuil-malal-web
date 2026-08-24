@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import AppShell from '@/components/AppShell';
 import CierreJornada from '@/components/CierreJornada';
 import MinutaPublicada from '@/components/MinutaPublicada';
@@ -24,11 +25,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{fecha?:
   const fin=fechaValida(q.fin)&&q.fin!>=inicio?q.fin!:fechaChile(finDefaultDate);
 
   const [rows,j,detalle,minuta,personas]=await Promise.all([
-    demandaFecha(fecha),
-    jornada(fecha),
-    detalleJornada(fecha),
-    obtenerMinutasRango(inicio,fin),
-    detalleProduccionFecha(fecha),
+    demandaFecha(fecha), jornada(fecha), detalleJornada(fecha), obtenerMinutasRango(inicio,fin), detalleProduccionFecha(fecha),
   ]);
   const estado=String(j?.estado||'Pendiente');
   const total=rows.reduce((sum,row)=>sum+Number(row.reservadas||0),0);
@@ -39,11 +36,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{fecha?:
       <p className="text-xs font-extrabold tracking-[.18em] text-[#1DB954]">COCINA / PRODUCCIÓN</p>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div><h1 className="text-2xl font-black">Producción del día</h1><p className="text-sm text-[#6B7570]">Reserva = demanda. Producción deduplica RUT + fecha + servicio. Bodega solo se descuenta al iniciar jornada.</p></div>
-        <form className="flex items-end gap-2">
-          <input type="hidden" name="inicio" value={inicio}/><input type="hidden" name="fin" value={fin}/>
-          <label className="text-sm font-bold">Día de producción<input type="date" name="fecha" defaultValue={fecha} className="mt-1 block rounded-lg border p-2"/></label>
-          <button className="rounded-lg border px-3 py-2 font-bold">Consultar</button>
-        </form>
+        <div className="flex flex-wrap items-end gap-2"><form className="flex items-end gap-2"><input type="hidden" name="inicio" value={inicio}/><input type="hidden" name="fin" value={fin}/><label className="text-sm font-bold">Día de producción<input type="date" name="fecha" defaultValue={fecha} className="mt-1 block rounded-lg border p-2"/></label><button className="rounded-lg border px-3 py-2 font-bold">Consultar</button></form><Link href={`/produccion/reporte?fecha=${encodeURIComponent(fecha)}&origen=cocina`} className="rounded-lg bg-[#0D9B91] px-4 py-2 text-sm font-black text-white">Ver reporte diario →</Link></div>
       </div>
       <div className="mt-5 grid gap-3 md:grid-cols-3"><div className="rounded-xl bg-[#F6F3EA] p-4"><span className="text-sm">Raciones</span><div className="text-3xl font-black">{total}</div></div><div className="rounded-xl bg-[#F6F3EA] p-4"><span className="text-sm">Preparaciones</span><div className="text-3xl font-black">{rows.length}</div></div><div className="rounded-xl bg-[#F6F3EA] p-4"><span className="text-sm">Jornada</span><div className="text-xl font-black">{estado}</div></div></div>
       <h2 className="mt-5 text-xl font-black">Reporte de demanda por servicio</h2>
@@ -57,23 +50,12 @@ export default async function Page({searchParams}:{searchParams:Promise<{fecha?:
       <div className="mt-4 space-y-5">{servicios.map(servicio=>{
         const sr=personas.filter(r=>r.servicio===servicio);
         const platos=[...new Set(sr.map(r=>`${r.tipo_opcion}|||${r.plato}`))];
-        return <div key={servicio} className="rounded-2xl border p-4"><div className="mb-3 flex items-center justify-between gap-3"><h3 className="text-lg font-black">{servicio}</h3><span className="rounded-full bg-[#1DB954]/10 px-3 py-1 text-sm font-black">{sr.length} raciones</span></div><div className="space-y-3">{platos.map(key=>{
-          const [opcion,plato]=key.split('|||'); const pr=sr.filter(r=>r.tipo_opcion===opcion&&r.plato===plato); const insts=[...new Set(pr.map(r=>r.institucion))];
-          return <article key={key} className="overflow-hidden rounded-xl border"><div className="bg-[#F6F3EA] p-3"><div className="text-xs font-bold text-[#6B7570]">{opcion||'Sin opción'}</div><div className="flex items-start justify-between gap-3"><div className="font-black">{plato}</div><div className="shrink-0 font-black">{pr.length}</div></div></div><div className="divide-y">{insts.map(inst=>{const ps=pr.filter(r=>r.institucion===inst);return <div key={inst} className="grid gap-1 p-3 sm:grid-cols-[180px_1fr_auto]"><div className="font-bold text-[#0E2A23]">{inst}</div><div className="text-sm text-[#4A5550]">{ps.map(p=>p.nombre).join(', ')}</div><div className="text-sm font-black">{ps.length}</div></div>})}</div></article>
-        })}</div></div>
+        return <div key={servicio} className="rounded-2xl border p-4"><div className="mb-3 flex items-center justify-between gap-3"><h3 className="text-lg font-black">{servicio}</h3><span className="rounded-full bg-[#1DB954]/10 px-3 py-1 text-sm font-black">{sr.length} raciones</span></div><div className="space-y-3">{platos.map(key=>{const [opcion,plato]=key.split('|||');const pr=sr.filter(r=>r.tipo_opcion===opcion&&r.plato===plato);const insts=[...new Set(pr.map(r=>r.institucion))];return <article key={key} className="overflow-hidden rounded-xl border"><div className="bg-[#F6F3EA] p-3"><div className="text-xs font-bold text-[#6B7570]">{opcion||'Sin opción'}</div><div className="flex items-start justify-between gap-3"><div className="font-black">{plato}</div><div className="shrink-0 font-black">{pr.length}</div></div></div><div className="divide-y">{insts.map(inst=>{const ps=pr.filter(r=>r.institucion===inst);return <div key={inst} className="grid gap-1 p-3 sm:grid-cols-[180px_1fr_auto]"><div className="font-bold text-[#0E2A23]">{inst}</div><div className="text-sm text-[#4A5550]">{ps.map(p=>p.nombre).join(', ')}</div><div className="text-sm font-black">{ps.length}</div></div>})}</div></article>})}</div></div>
       })}</div>
     </section>
 
     <section className="rounded-2xl border bg-white p-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div><h2 className="text-xl font-black">Minuta oficial publicada · solo lectura</h2><p className="text-sm text-[#6B7570]">Consulta varios días sin cambiar la jornada de producción seleccionada arriba.</p></div>
-        <form className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-          <input type="hidden" name="fecha" value={fecha}/>
-          <label className="text-sm font-bold">Desde<input type="date" name="inicio" defaultValue={inicio} className="mt-1 block rounded-lg border p-2"/></label>
-          <label className="text-sm font-bold">Hasta<input type="date" name="fin" defaultValue={fin} className="mt-1 block rounded-lg border p-2"/></label>
-          <button className="self-end rounded-lg border px-4 py-2 font-bold">Consultar minuta</button>
-        </form>
-      </div>
+      <div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-black">Minuta oficial publicada · solo lectura</h2><p className="text-sm text-[#6B7570]">Consulta varios días sin cambiar la jornada de producción seleccionada arriba.</p></div><form className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"><input type="hidden" name="fecha" value={fecha}/><label className="text-sm font-bold">Desde<input type="date" name="inicio" defaultValue={inicio} className="mt-1 block rounded-lg border p-2"/></label><label className="text-sm font-bold">Hasta<input type="date" name="fin" defaultValue={fin} className="mt-1 block rounded-lg border p-2"/></label><button className="self-end rounded-lg border px-4 py-2 font-bold">Consultar minuta</button></form></div>
       <MinutaPublicada rows={minuta}/>
     </section>
   </div></AppShell>
