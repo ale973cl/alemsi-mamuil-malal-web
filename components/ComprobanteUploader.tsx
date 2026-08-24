@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 
+const UPLOAD_TIMEOUT_MS = 30000;
+
 export default function ComprobanteUploader({ token }: { token: string }) {
   const [file, setFile] = useState<File | null>(null);
   const [state, setState] = useState<{ loading: boolean; error: string; ok: boolean }>({ loading: false, error: '', ok: false });
@@ -12,12 +14,31 @@ export default function ComprobanteUploader({ token }: { token: string }) {
     if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) return setState({ loading: false, error: 'Formato permitido: PDF, JPG o PNG.', ok: false });
 
     setState({ loading: true, error: '', ok: false });
-    const form = new FormData();
-    form.set('file', file);
-    const response = await fetch(`/api/comprobante/${encodeURIComponent(token)}`, { method: 'POST', body: form });
-    const body = await response.json();
-    if (!response.ok) return setState({ loading: false, error: body.error || 'No fue posible cargar el comprobante.', ok: false });
-    setState({ loading: false, error: '', ok: true });
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
+
+    try {
+      const form = new FormData();
+      form.set('file', file);
+      const response = await fetch(`/api/comprobante/${encodeURIComponent(token)}`, {
+        method: 'POST',
+        body: form,
+        signal: controller.signal,
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setState({ loading: false, error: body.error || 'No fue posible cargar el comprobante.', ok: false });
+        return;
+      }
+      setState({ loading: false, error: '', ok: true });
+    } catch (error) {
+      const mensaje = error instanceof DOMException && error.name === 'AbortError'
+        ? 'La carga demoró demasiado. Verifica tu conexión e inténtalo nuevamente.'
+        : 'No fue posible enviar el comprobante. Verifica tu conexión e inténtalo nuevamente.';
+      setState({ loading: false, error: mensaje, ok: false });
+    } finally {
+      window.clearTimeout(timeout);
+    }
   }
 
   if (state.ok) return <div className="rounded-2xl border border-[#1DB954]/30 bg-[#1DB954]/10 p-5"><b className="text-[#0E2A23]">✓ Comprobante recibido.</b><p className="mt-1 text-sm text-[#6B7570]">Finanzas lo revisará.</p></div>;
