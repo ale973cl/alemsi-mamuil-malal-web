@@ -1,4 +1,6 @@
 import ComprobanteReservaLink from '@/components/ComprobanteReservaLink';
+import ComensalNav from '@/components/ComensalNav';
+import { getComensalSession } from '@/lib/auth/comensal-session';
 import { listarMisReservas } from '@/lib/db/comensal-gestion';
 import { obtenerReglasReserva } from '@/lib/db/reservas';
 import { cancelacionDirectaHabilitada } from '@/lib/reglas/reserva';
@@ -8,7 +10,8 @@ export const dynamic='force-dynamic';
 
 export default async function Page({searchParams}:{searchParams:Promise<{rut?:string}>}){
   const q=await searchParams;
-  const rut=q.rut||'';
+  const session=await getComensalSession();
+  const rut=session?.rut||q.rut||'';
   let data:any=null,error='';
   if(rut){try{data=await listarMisReservas(rut)}catch(e){error=e instanceof Error?e.message:'Error'}}
   const reglas=await obtenerReglasReserva();
@@ -17,9 +20,9 @@ export default async function Page({searchParams}:{searchParams:Promise<{rut?:st
     <div className="mx-auto max-w-5xl rounded-2xl border bg-white p-5">
       <div className="flex flex-wrap justify-between gap-3">
         <div><p className="text-xs font-extrabold tracking-[.18em] text-[#1DB954]">COMENSAL</p><h1 className="text-2xl font-black">Mis reservas</h1><p className="text-sm text-[#6B7570]">Gestiona aquí tus servicios, pago y comprobante.</p></div>
-        <a href="/reserva" className="rounded-lg border px-3 py-2 text-sm font-bold">Nueva reserva</a>
+        <div className="flex flex-wrap gap-2"><a href="/reserva" className="rounded-lg border px-3 py-2 text-sm font-bold">Nueva reserva</a>{session&&<ComensalNav backHref="/reserva"/>}</div>
       </div>
-      <form className="mt-5 flex gap-2"><input name="rut" defaultValue={rut} placeholder="RUT" className="min-h-11 flex-1 rounded-lg border px-3"/><button className="rounded-lg bg-[#1DB954] px-4 font-black">Consultar</button></form>
+      {session?<div className="mt-5 rounded-xl bg-[#1DB954]/10 p-3 text-sm"><b>Sesión activa.</b> RUT {session.rut}. No necesitas ingresarlo nuevamente.</div>:<form className="mt-5 flex gap-2"><input name="rut" defaultValue={rut} placeholder="RUT" className="min-h-11 flex-1 rounded-lg border px-3"/><button className="rounded-lg bg-[#1DB954] px-4 font-black">Consultar</button></form>}
       {error&&<div className="mt-4 rounded-lg bg-red-50 p-3 text-red-700">{error}</div>}
 
       {data&&<div className="mt-5 space-y-4">{data.cab.map((c:any)=>{

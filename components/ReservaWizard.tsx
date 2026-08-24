@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { cargarMinutaDisponible, confirmarReserva, identificarComensal, registrarNuevoComensal } from '@/app/reserva/actions';
 import type { EleccionReserva } from '@/lib/reglas/reserva';
 
@@ -34,8 +34,8 @@ function money(value: number) {
   return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(value);
 }
 
-export default function ReservaWizard() {
-  const [rut, setRut] = useState('');
+export default function ReservaWizard({initialRut=''}:{initialRut?:string}) {
+  const [rut, setRut] = useState(initialRut);
   const [perfil, setPerfil] = useState<Extract<Perfil, { ok: true }> | null>(null);
   const [minuta, setMinuta] = useState<Extract<Minuta, { ok: true }> | null>(null);
   const [etapa, setEtapa] = useState<Etapa>('rut');
@@ -90,6 +90,20 @@ export default function ReservaWizard() {
       setMinuta(menu);
       setEtapa('fechas');
   }
+
+  useEffect(()=>{
+    if(!initialRut) return;
+    let activo=true;
+    startTransition(async()=>{
+      const response=await identificarComensal(initialRut);
+      if(!activo) return;
+      if(!response.ok){setError('error' in response&&typeof response.error==='string'?response.error:'No fue posible recuperar tu sesión.');return;}
+      await continuarConPerfil(response);
+    });
+    return()=>{activo=false;};
+  // Solo recupera la sesión al entrar/cambiar de RUT de sesión.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[initialRut]);
 
   function registrar() {
     if(!nuevo)return;
@@ -350,7 +364,7 @@ export default function ReservaWizard() {
               <p className="mt-2 text-sm text-[#6B7570]">Referencia: {resultado.result.referencia}</p>
               {resultado.result.total > 0 && <p className="mt-4 text-xl font-extrabold text-[#0E2A23]">Total: {money(resultado.result.total)}</p>}
               {resultado.result.pagoToken && (
-                <div className="mt-6 flex flex-col items-center gap-3"><a href={`/mis-reservas?rut=${encodeURIComponent(rut)}`} className="inline-flex min-h-12 items-center rounded-xl bg-[#0E2A23] px-6 font-extrabold text-white hover:bg-[#071814]">Gestionar en Mis reservas</a><a href={`/comprobante/${encodeURIComponent(resultado.result.pagoToken)}`} className="text-sm font-bold text-[#0E2A23] underline">Acceso directo opcional al comprobante</a></div>
+                <div className="mt-6 flex flex-col items-center gap-3"><a href="/mis-reservas" className="inline-flex min-h-12 items-center rounded-xl bg-[#0E2A23] px-6 font-extrabold text-white hover:bg-[#071814]">Gestionar en Mis reservas</a><a href={`/comprobante/${encodeURIComponent(resultado.result.pagoToken)}`} className="text-sm font-bold text-[#0E2A23] underline">Acceso directo opcional al comprobante</a></div>
               )}
             </div>
           )}

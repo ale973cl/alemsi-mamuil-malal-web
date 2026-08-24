@@ -6,6 +6,7 @@ import { correoReservaConfirmada } from '@/lib/email/notificaciones';
 import { enviarCorreoSmtp } from '@/lib/email/smtp';
 import { obtenerMinutasRango } from '@/lib/db/minutas';
 import { crearOActualizarReserva, obtenerDeudaBloqueante, obtenerReglasReserva } from '@/lib/db/reservas';
+import { setComensalSession } from '@/lib/auth/comensal-session';
 import {
   normalizarRutDb,
   normalizarRutVisible,
@@ -20,16 +21,12 @@ export async function identificarComensal(rutInput: string) {
   const rut = normalizarRutDb(rutInput);
   const persona = await obtenerComensal(rut);
   if (!persona) return { ok: false as const, nuevo: true as const, rut, rutVisible: normalizarRutVisible(rut), instituciones: await listarInstitucionesActivas() };
+  await setComensalSession(rut);
   const institucion = persona.institucion?.trim() || 'Visitas';
   const precio = await obtenerPrecioPersona(rut, institucion);
   const tipo = tipoInstitucion(institucion);
   const deudas = tipo === 'comercial' ? await obtenerDeudaBloqueante(rut) : [];
-  return {
-    ok: true as const,
-    persona: { ...persona, rutVisible: normalizarRutVisible(rut), institucion },
-    precio,
-    deudas,
-  };
+  return { ok: true as const, persona: { ...persona, rutVisible: normalizarRutVisible(rut), institucion }, precio, deudas };
 }
 
 const correoValido=(valor:string)=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor);
@@ -47,9 +44,7 @@ export async function registrarNuevoComensal(input:{rut:string;nombre:string;tel
     const perfil=await identificarComensal(input.rut);
     if(!perfil.ok) return {ok:false as const,error:'No fue posible cargar la ficha registrada.'};
     return perfil;
-  } catch(error) {
-    return {ok:false as const,error:error instanceof Error?error.message:'No fue posible registrar el comensal.'};
-  }
+  } catch(error) { return {ok:false as const,error:error instanceof Error?error.message:'No fue posible registrar el comensal.'}; }
 }
 
 export async function cargarMinutaDisponible(rutInput: string, inicio: string, fin: string) {
@@ -58,27 +53,16 @@ export async function cargarMinutaDisponible(rutInput: string, inicio: string, f
   const reglas = await obtenerReglasReserva();
   const rows = await obtenerMinutasRango(inicio, fin);
   const tipo = tipoInstitucion(perfil.persona.institucion);
-
   const filtradas = rows.filter((row) => {
     if (tipo === 'administrativos' && row.servicio !== 'Almuerzo') return false;
-    if (tipo === 'paso') {
-      const tipoOpcion = String(row.tipo_opcion ?? '').trim().toUpperCase();
-      if (!['OPCION 1', 'HIPOCALORICO'].includes(tipoOpcion)) return false;
-    }
-    if (tipo === 'comercial' && !reservaComercialHabilitada(row.fecha, row.servicio, Number(reglas.anticipacion_reserva_horas))) {
-      return false;
-    }
+    if (tipo === 'paso') { const tipoOpcion = String(row.tipo_opcion ?? '').trim().toUpperCase(); if (!['OPCION 1', 'HIPOCALORICO'].includes(tipoOpcion)) return false; }
+    if (tipo === 'comercial' && !reservaComercialHabilitada(row.fecha, row.servicio, Number(reglas.anticipacion_reserva_horas))) return false;
     return true;
   });
-
   return { ok: true as const, rows: filtradas, reglas };
 }
 
-export async function confirmarReserva(input: {
-  rut: string;
-  elecciones: EleccionReserva[];
-  metodoPago?: 'Transferencia bancaria' | 'Débito en la instalación';
-}) {
+export async function confirmarReserva(input: { rut: string; elecciones: EleccionReserva[]; metodoPago?: 'Transferencia bancaria' | 'Débito en la instalación'; }) {
   try {
     const result = await crearOActualizarReserva(input);
     const h = await headers();
@@ -87,19 +71,10 @@ export async function confirmarReserva(input: {
     let correo: Awaited<ReturnType<typeof enviarCorreoSmtp>> | null = null;
     console.info('RESERVA_SMTP_START');
     try {
-      if (!result.correo || !host) {
-        correo = { ok: false, errorType: 'configuration' };
-      } else {
-        correo = await enviarCorreoSmtp(correoReservaConfirmada({ correo: result.correo, codigo: result.codigoReserva, referencia: result.referencia, pagoToken: result.pagoToken, origin: `${proto}://${host}` }));
-      }
-      if (correo.ok) console.info('RESERVA_SMTP_OK');
-      else console.error('RESERVA_SMTP_ERROR', correo.errorType);
-    } catch {
-      correo = { ok: false, errorType: 'protocol' };
-      console.error('RESERVA_SMTP_ERROR', 'protocol');
-    }
+      if (!result.correo || !host) correo = { ok: false, errorType: 'configuration' };
+      else correo = await enviarCorreoSmtp(correoReservaConfirmada({ correo: result.correo, codigo: result.codigoReserva, referencia: result.referencia, pagoToken: result.pagoToken, origin: `${proto}://${host}` }));
+      if (correo.ok) console.info('RESERVA_SMTP_OK'); else console.error('RESERVA_SMTP_ERROR', correo.errorType);
+    } catch { correo = { ok: false, errorType: 'protocol' }; console.error('RESERVA_SMTP_ERROR', 'protocol'); }
     return { ok: true as const, result: { ...result, correo } };
-  } catch (error) {
-    return { ok: false as const, error: error instanceof Error ? error.message : 'No fue posible registrar la reserva.' };
-  }
+  } catch (error) { return { ok: false as const, error: error instanceof Error ? error.message : 'No fue posible registrar la reserva.' }; }
 }
