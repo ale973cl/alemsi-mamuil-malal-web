@@ -1,11 +1,11 @@
-import { Pool } from "pg";
-let pool: Pool | undefined;
+import 'server-only';
+import type { QueryResultRow } from 'pg';
+import { db as sharedDb, query as sharedQuery } from '@/lib/db/pool';
+
 export function db() {
-  if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL no configurada");
-  if (!pool) pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 5 });
-  return pool;
+  return sharedDb();
 }
-export async function query<T = Record<string,unknown>>(text: string, values: unknown[] = []) {
-  const result = await db().query(text, values);
-  return result.rows as T[];
+
+export async function query<T extends QueryResultRow = Record<string, unknown>>(text: string, values: unknown[] = []) {
+  return sharedQuery<T>(text, values);
 }
