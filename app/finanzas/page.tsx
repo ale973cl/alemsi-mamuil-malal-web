@@ -10,7 +10,7 @@ const estados=[
   ['global','Todos'],
   ['pendientes','Pendientes / por recaudar'],
   ['sin-comprobante','Sin comprobante'],
-  ['por-validar','Por validar'],
+  ['por-validar','Comprobantes por validar'],
   ['rechazados','Rechazados'],
   ['validados','Validados'],
 ] as const;
@@ -26,12 +26,26 @@ function fechaEnRango(fecha:string,desde:string,hasta:string){return Boolean(fec
 function montoRango(row:any,desde:string,hasta:string){return servicios(row).reduce((sum:number,s:any)=>sum+(fechaEnRango(String(s.fecha||''),desde,hasta)?Number(s.monto||0):0),0)}
 function montoAnterior(row:any,desde:string){return servicios(row).reduce((sum:number,s:any)=>sum+(String(s.fecha||'')<desde?Number(s.monto||0):0),0)}
 function coincideRango(row:any,desde?:string,hasta?:string){if(!desde||!hasta)return true;return servicios(row).some((s:any)=>fechaEnRango(String(s.fecha||''),desde,hasta))}
+function tieneComprobante(row:any){return Boolean(row.comprobante_id)}
+function estadoComprobante(row:any){return String(row.comprobante_estado||'').trim().toUpperCase()}
+function sinComprobante(row:any){return !tieneComprobante(row)}
+function comprobantePorValidar(row:any){const estado=estadoComprobante(row);return tieneComprobante(row)&&!['VALIDADO','RECHAZADO'].includes(estado)}
 function coincideEstado(row:any,estado:string){
   if(estado==='global')return true;
   if(estado==='pendientes')return esCobrable(row)&&!esPagado(row);
-  return estadoBandeja(row)===estado;
+  if(estado==='sin-comprobante')return sinComprobante(row);
+  if(estado==='por-validar')return comprobantePorValidar(row);
+  if(estado==='rechazados')return estadoBandeja(row)==='rechazados';
+  if(estado==='validados')return esPagado(row);
+  return true;
 }
-function estadoVisible(row:any){const e=estadoBandeja(row);return e==='por-validar'?'Por validar':e==='sin-comprobante'?'Sin comprobante':e==='rechazados'?'Rechazado':'Validado'}
+function estadoVisible(row:any){
+  if(sinComprobante(row)&&esPagado(row))return 'Pagado · sin comprobante';
+  if(sinComprobante(row))return 'Sin comprobante';
+  if(comprobantePorValidar(row))return 'Comprobante por validar';
+  if(estadoBandeja(row)==='rechazados')return 'Rechazado';
+  return esPagado(row)?'Validado':'Pendiente';
+}
 
 export default async function Page({searchParams}:{searchParams:Promise<{estado?:string;institucion?:string;medio?:string;q?:string;desde?:string;hasta?:string}>}){
   const u=await requireUser(['Finanzas','AdminTotal']);
@@ -65,7 +79,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{estado?
   const reservadoPeriodo=baseKpi.reduce((sum:number,row:any)=>sum+montoRango(row,periodo.desde,periodo.hasta),0);
   const pagadoPeriodo=baseKpi.filter(esPagado).reduce((sum:number,row:any)=>sum+montoRango(row,periodo.desde,periodo.hasta),0);
   const pendientePeriodo=baseKpi.filter((r:any)=>esCobrable(r)&&!esPagado(r)).reduce((sum:number,row:any)=>sum+montoRango(row,periodo.desde,periodo.hasta),0);
-  const porValidarPeriodo=baseKpi.filter((r:any)=>estadoBandeja(r)==='por-validar').reduce((sum:number,row:any)=>sum+montoRango(row,periodo.desde,periodo.hasta),0);
+  const porValidarPeriodo=baseKpi.filter(comprobantePorValidar).reduce((sum:number,row:any)=>sum+montoRango(row,periodo.desde,periodo.hasta),0);
   const deudaAnterior=baseKpi.filter((r:any)=>esCobrable(r)&&!esPagado(r)).reduce((sum:number,row:any)=>sum+montoAnterior(row,periodo.desde),0);
   const saldoTotal=pendientePeriodo+deudaAnterior;
 
