@@ -1,6 +1,5 @@
 import 'server-only';
 import crypto from 'node:crypto';
-import type { PoolClient } from 'pg';
 import { inTransaction, query } from '@/lib/db/pool';
 import { obtenerComensal, obtenerPrecioPersona } from '@/lib/db/comensales';
 import { validarPlatoPublicado } from '@/lib/db/minutas';
@@ -11,7 +10,6 @@ import {
   maxConsecutivosFechas,
   normalizarRutDb,
   reservaComercialHabilitada,
-  consolidarDeudaPasada,
   tipoInstitucion,
   validarEleccionesPorDia,
   type EleccionReserva,
@@ -32,28 +30,35 @@ export async function obtenerReglasReserva(): Promise<ReglasReserva> {
   }
 }
 
+/**
+ * Para comensales comerciales, cualquier reserva ACTIVA cuyo pago aún no esté
+ * aprobado/pagado bloquea una nueva reserva, aunque el servicio sea futuro.
+ * ALEMSI interno y Coordinadores no usan este bloqueo financiero.
+ */
 export async function obtenerDeudaBloqueante(rut: string) {
-  const lineas=await query<{
+  return query<{
     referencia_reserva:string;
-    fecha:string;
-    servicio:string;
+    primera_fecha:string;
+    ultima_fecha:string;
     monto_pendiente:number;
-    estado:string;
+    estados:string;
   }>(
-    `SELECT referencia_reserva,fecha,servicio,
-            COALESCE(precio_aplicado,precio,0) AS monto_pendiente,
-            COALESCE(NULLIF(TRIM(estado_pago),''),'Pendiente') AS estado
+    `SELECT referencia_reserva,
+            MIN(fecha)::text AS primera_fecha,
+            MAX(fecha)::text AS ultima_fecha,
+            SUM(COALESCE(precio_aplicado,precio,0))::numeric AS monto_pendiente,
+            STRING_AGG(DISTINCT COALESCE(NULLIF(TRIM(estado_pago),''),'Pendiente'), ', ') AS estados
        FROM solicitudes
       WHERE rut=$1
         AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA'
         AND COALESCE(precio_aplicado,precio,0)>0
         AND COALESCE(tipo_registro,'RESERVA_COMERCIAL')='RESERVA_COMERCIAL'
         AND LOWER(TRIM(COALESCE(estado_pago,'Pendiente'))) NOT IN
-            ('pagado','no aplica','costo asumido','costo asumido / no cobrable')
-      ORDER BY fecha,referencia_reserva,servicio,id`,
+            ('pagado','aprobado','no aplica','costo asumido','costo asumido / no cobrable')
+      GROUP BY referencia_reserva
+      ORDER BY MIN(fecha),referencia_reserva`,
     [normalizarRutDb(rut)],
   );
-  return consolidarDeudaPasada(lineas);
 }
 
 async function excepcionReservaActiva(rut: string, fecha: string): Promise<boolean> {
@@ -95,20 +100,6 @@ function codigoVoucher(rut: string, servicio: string, fecha: string): string {
   return `${limpiarRut(rut).slice(0, 4)}-${servicio.slice(0, 3).toUpperCase()}-${fecha.slice(8, 10)}${fecha.slice(5, 7)}-${crypto.randomInt(100, 1000)}`;
 }
 
-async function filaExistente(client: PoolClient, rut: string, item: EleccionReserva) {
-  const result = await client.query<{ id: number; codigo: string | null; referencia_reserva: string | null }>(
-    `SELECT id,codigo,referencia_reserva
-       FROM solicitudes
-      WHERE rut=$1 AND fecha=$2 AND servicio=$3
-        AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA'
-      ORDER BY id DESC
-      LIMIT 1
-      FOR UPDATE`,
-    [rut, item.fecha, item.servicio],
-  );
-  return result.rows[0] ?? null;
-}
-
 export type CrearReservaInput = {
   rut: string;
   elecciones: EleccionReserva[];
@@ -119,6 +110,7 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
   const rut = normalizarRutDb(input.rut);
   const persona = await obtenerComensal(rut);
   if (!persona) throw new Error('Comensal no encontrado.');
+
   const institucion = persona.institucion?.trim() || 'Visitas';
   const tipo = tipoInstitucion(institucion);
   const esAlem = tipo === 'paso' || tipo === 'administrativos';
@@ -129,14 +121,44 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
   if (!fechas.length) throw new Error('No hay fechas seleccionadas.');
   validarEleccionesPorDia(fechas, input.elecciones, institucion);
 
+  // Las restricciones de modalidad existentes también se validan en servidor.
+  if (tipo === 'administrativos' && input.elecciones.some((item) => item.servicio !== 'Almuerzo')) {
+    throw new Error('ALEMSI Administrativos solo puede reservar Almuerzo.');
+  }
+  if (tipo === 'paso') {
+    const opcionInvalida = input.elecciones.find((item) => {
+      const op = String(item.tipo_opcion || '').trim().toUpperCase().replaceAll('Ó','O');
+      return op && !['OPCION 1','HIPOCALORICO'].includes(op);
+    });
+    if (opcionInvalida) throw new Error('La modalidad ALEMSI Paso solo permite Opción 1 o Hipocalórico.');
+  }
+
   if (!esAlem && !esCoordinador) {
-    const deudas = await obtenerDeudaBloqueante(rut);
-    if (deudas.length) {
-      throw new Error('Tienes servicios anteriores con pago pendiente o rechazado. Debes regularizarlos antes de realizar una nueva reserva.');
+    const pendientes = await obtenerDeudaBloqueante(rut);
+    if (pendientes.length) {
+      throw new Error('Tienes una reserva activa pendiente de validación o pago. Debes regularizarla antes de crear otra reserva.');
     }
     if (maxConsecutivosFechas(fechas) > Number(reglas.max_dias_consecutivos)) {
       throw new Error(`Máximo permitido: ${reglas.max_dias_consecutivos} días consecutivos.`);
     }
+  }
+
+  // Nadie, incluido ALEMSI interno, puede crear una segunda reserva activa para el mismo día.
+  const existentes = await query<{fecha:string;referencia_reserva:string|null;codigo_reserva:string|null}>(
+    `SELECT fecha::text AS fecha,
+            MAX(referencia_reserva) AS referencia_reserva,
+            MAX(codigo_reserva) AS codigo_reserva
+       FROM solicitudes
+      WHERE rut=$1
+        AND fecha = ANY($2::date[])
+        AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA'
+      GROUP BY fecha
+      ORDER BY fecha`,
+    [rut, fechas],
+  );
+  if (existentes.length) {
+    const dias = existentes.map((x) => x.fecha).join(', ');
+    throw new Error(`Ya tienes una reserva activa para ${dias}. Se conserva la primera; usa Mis reservas → Editar para cambiar plato u opción.`);
   }
 
   for (const item of input.elecciones) {
@@ -150,7 +172,7 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
   }
 
   const precioPersona = await obtenerPrecioPersona(rut, institucion);
-  let referencia = referenciaReserva(rut);
+  const referencia = referenciaReserva(rut);
   const codigoPublico = await codigoReservaPublico();
   const pagoToken = !esAlem && !esCoordinador ? crypto.randomBytes(32).toString('base64url') : '';
   const ahora = new Date().toISOString();
@@ -166,18 +188,22 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
   }
 
   await inTransaction(async (client) => {
-    for (const item of input.elecciones) {
-      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${rut}|${item.fecha}|${item.servicio}`]);
-      const existente = await filaExistente(client, rut, item);
-      if (existente?.referencia_reserva) referencia = existente.referencia_reserva;
-
-      if (existente) {
-        const exception = Number(reglas.excepciones_habilitadas) === 1 && (await excepcionReservaActiva(rut, item.fecha));
-        if (!exception && !reservaComercialHabilitada(item.fecha, item.servicio, Number(reglas.anticipacion_reserva_horas))) {
-          throw new Error(`${item.servicio} del ${item.fecha} ya no puede modificarse porque faltan menos de 48 horas.`);
-        }
+    // Bloqueo por RUT+día evita carreras simultáneas con servicios distintos.
+    for (const fecha of fechas) {
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${rut}|${fecha}|DIA`]);
+      const duplicado = await client.query(
+        `SELECT id FROM solicitudes
+          WHERE rut=$1 AND fecha=$2
+            AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA'
+          LIMIT 1 FOR UPDATE`,
+        [rut, fecha],
+      );
+      if (duplicado.rows[0]) {
+        throw new Error(`Ya tienes una reserva activa para ${fecha}. Se conserva la primera; debes editarla desde Mis reservas.`);
       }
+    }
 
+    for (const item of input.elecciones) {
       const lineasDia = porFecha.get(item.fecha) ?? [];
       const posicion = lineasDia.findIndex((x) => x === item);
       const precios = distribuirPrecioDia(precioPersona.precio, lineasDia.length);
@@ -185,61 +211,33 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
       const estadoPago = esAlem ? 'No aplica' : esCoordinador ? 'Costo asumido' : 'Pendiente';
       const estadoConsumo = esAlem ? 'Consumirá' : 'Pendiente';
       const tipoRegistro = esAlem ? 'CONSUMO_INTERNO' : esCoordinador ? 'CONSUMO_COORDINADOR' : 'RESERVA_COMERCIAL';
-      const voucher = esAlem ? null : existente?.codigo || codigoVoucher(rut, item.servicio, item.fecha);
+      const voucher = esAlem ? null : codigoVoucher(rut, item.servicio, item.fecha);
 
-      if (existente) {
-        await client.query(
-          `UPDATE solicitudes
-              SET plato=$1,plato_reservado=$1,tipo_opcion=COALESCE($2,tipo_opcion),codigo=COALESCE(codigo,$3),
-                  precio=$4,precio_aplicado=$4,institucion=$5,correo=$6,metodo_pago=$7,estado_pago=$8,
-                  estado_consumo=$9,fecha_modificacion=$10,modificado_por=$11,referencia_reserva=$12,
-                  codigo_reserva=COALESCE(NULLIF(codigo_reserva,''),$13),tipo_registro=$14,estado_reserva='ACTIVA'
-            WHERE id=$15`,
-          [
-            item.plato,
-            item.tipo_opcion || null,
-            voucher,
-            precioLinea,
-            institucion,
-            persona.correo || '',
-            metodo,
-            estadoPago,
-            estadoConsumo,
-            ahora,
-            rut,
-            referencia,
-            codigoPublico,
-            tipoRegistro,
-            existente.id,
-          ],
-        );
-      } else {
-        await client.query(
-          `INSERT INTO solicitudes
-            (rut,fecha,servicio,plato,plato_reservado,tipo_opcion,codigo,precio,precio_aplicado,
-             institucion,correo,metodo_pago,estado_pago,estado_consumo,fecha_creacion,fecha_modificacion,
-             modificado_por,referencia_reserva,codigo_reserva,tipo_registro,estado_reserva)
-           VALUES ($1,$2,$3,$4,$4,$5,$6,$7,$7,$8,$9,$10,$11,$12,$13,$13,$1,$14,$15,$16,'ACTIVA')`,
-          [
-            rut,
-            item.fecha,
-            item.servicio,
-            item.plato,
-            item.tipo_opcion || null,
-            voucher,
-            precioLinea,
-            institucion,
-            persona.correo || '',
-            metodo,
-            estadoPago,
-            estadoConsumo,
-            ahora,
-            referencia,
-            codigoPublico,
-            tipoRegistro,
-          ],
-        );
-      }
+      await client.query(
+        `INSERT INTO solicitudes
+          (rut,fecha,servicio,plato,plato_reservado,tipo_opcion,codigo,precio,precio_aplicado,
+           institucion,correo,metodo_pago,estado_pago,estado_consumo,fecha_creacion,fecha_modificacion,
+           modificado_por,referencia_reserva,codigo_reserva,tipo_registro,estado_reserva)
+         VALUES ($1,$2,$3,$4,$4,$5,$6,$7,$7,$8,$9,$10,$11,$12,$13,$13,$1,$14,$15,$16,'ACTIVA')`,
+        [
+          rut,
+          item.fecha,
+          item.servicio,
+          item.plato,
+          item.tipo_opcion || null,
+          voucher,
+          precioLinea,
+          institucion,
+          persona.correo || '',
+          metodo,
+          estadoPago,
+          estadoConsumo,
+          ahora,
+          referencia,
+          codigoPublico,
+          tipoRegistro,
+        ],
+      );
     }
 
     if (pagoToken) {
