@@ -150,7 +150,7 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
             MAX(codigo_reserva) AS codigo_reserva
        FROM solicitudes
       WHERE rut=$1
-        AND fecha = ANY($2::date[])
+        AND fecha = ANY($2::text[])
         AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA'
       GROUP BY fecha
       ORDER BY fecha`,
