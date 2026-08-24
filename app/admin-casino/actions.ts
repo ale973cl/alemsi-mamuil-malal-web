@@ -9,6 +9,7 @@ import {
   registrarAutorizacionExterna,
   setReglas,
 } from '@/lib/db/admin';
+import { publicarMinutaDirecta } from '@/lib/db/publicacion-directa-minuta';
 import { resolverSolicitudExtraordinaria } from '@/lib/db/solicitudes-extraordinarias';
 import type { FilaMinutaInput } from '@/lib/reglas/minutas';
 import { revalidatePath } from 'next/cache';
@@ -36,6 +37,16 @@ export async function publicarAction(fd: FormData) {
   if(fd.get('confirmar')!=='PUBLICAR') throw new Error('Debes confirmar la publicación.');
   await publicarMinuta(String(fd.get('inicio')),String(fd.get('fin')),u.username,u.rol);
   revalidatePath('/admin-casino');
+}
+
+export async function publicarDirectoAction(fd:FormData){
+  const u=await requireUser(['AdminCasino','AdminTotal']);
+  if(fd.get('confirmar')!=='PUBLICAR_DIRECTO') throw new Error('Debes confirmar la publicación directa.');
+  await publicarMinutaDirecta(String(fd.get('inicio')||''),String(fd.get('fin')||''),u.username,u.rol);
+  revalidatePath('/admin-casino');
+  revalidatePath('/cocina');
+  revalidatePath('/gerencia');
+  revalidatePath('/reserva');
 }
 
 export async function guardarMinutasAction(rows: FilaMinutaInput[]) {
