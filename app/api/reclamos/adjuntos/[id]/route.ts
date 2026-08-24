@@ -8,5 +8,6 @@ export async function GET(_req:Request,{params}:{params:Promise<{id:string}>}){
   const {id}=await params;
   const a=await obtenerAdjuntoReclamo(Number(id));
   if(!a) return new NextResponse('Archivo no encontrado',{status:404});
-  return new NextResponse(a.contenido,{headers:{'content-type':a.mime_type||'application/octet-stream','content-disposition':`inline; filename="${String(a.nombre_archivo||'archivo').replaceAll('"','')}"`,'cache-control':'private, no-store'}});
+  const body=Uint8Array.from(a.contenido);
+  return new NextResponse(body,{headers:{'content-type':a.mime_type||'application/octet-stream','content-disposition':`inline; filename="${String(a.nombre_archivo||'archivo').replaceAll('"','')}"`,'cache-control':'private, no-store'}});
 }
