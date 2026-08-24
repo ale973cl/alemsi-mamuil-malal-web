@@ -69,8 +69,8 @@ export async function listarSolicitudesExtraordinarias(estado:EstadoSolicitudExt
   const params=estado==='TODAS'?[]:[estado];
   return query<any>(`
     SELECT se.*,c.nombre,
-           CASE WHEN EXISTS(SELECT 1 FROM jornadas_produccion jp WHERE jp.fecha=se.fecha AND jp.estado='En producción') THEN 'EN_PRODUCCION'
-                WHEN EXISTS(SELECT 1 FROM jornadas_produccion jp WHERE jp.fecha=se.fecha AND jp.estado='Finalizado') THEN 'FINALIZADA'
+           CASE WHEN EXISTS(SELECT 1 FROM jornadas_produccion jp WHERE jp.fecha=se.fecha::text AND jp.estado='En producción') THEN 'EN_PRODUCCION'
+                WHEN EXISTS(SELECT 1 FROM jornadas_produccion jp WHERE jp.fecha=se.fecha::text AND jp.estado='Finalizado') THEN 'FINALIZADA'
                 ELSE 'PENDIENTE' END AS estado_jornada
       FROM solicitudes_extraordinarias se
       LEFT JOIN comensales c ON c.rut=se.rut
