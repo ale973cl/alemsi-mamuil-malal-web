@@ -51,16 +51,26 @@ export async function guardarMinutas(rows:FilaMinutaInput[],u:string){
   if(!normalizadas.length) errores.push({fila:0,campo:'archivo',mensaje:'No hay filas para guardar.'});
   if(errores.length) return {ok:false as const,errores};
   return inTransaction(async c=>{
+    let creadas=0;
+    let actualizadas=0;
     for(let index=0;index<normalizadas.length;index++){
       const row=normalizadas[index];
-      const conflicto=await c.query(`SELECT id FROM minutas WHERE COALESCE(activo,1)=1 AND fecha=$1 AND servicio=$2 AND UPPER(TRIM(tipo_opcion))=$3 LIMIT 1 FOR UPDATE`,[row.fecha,row.servicio,row.tipo_opcion]);
-      if(conflicto.rows[0]) throw new Error(`Fila ${index+1}: ya existe ${row.fecha} · ${row.servicio} · ${row.tipo_opcion}.`);
+      const existentes=await c.query<{id:number}>(`SELECT id FROM minutas WHERE COALESCE(activo,1)=1 AND fecha=$1 AND servicio=$2 AND UPPER(TRIM(tipo_opcion))=$3 ORDER BY id FOR UPDATE`,[row.fecha,row.servicio,row.tipo_opcion]);
+      if(existentes.rowCount>1){
+        return {ok:false as const,errores:[{fila:index+1,campo:'opcion',mensaje:`La base ya contiene ${existentes.rowCount} registros activos para ${row.fecha} · ${row.servicio} · ${row.tipo_opcion}. Corrige ese duplicado antes de continuar.`}]};
+      }
+      if(existentes.rows[0]){
+        await c.query(`UPDATE minutas SET plato=$1,activo=1,estado='PUBLICABLE' WHERE id=$2`,[row.plato,existentes.rows[0].id]);
+        actualizadas++;
+      }else{
+        await c.query(`INSERT INTO minutas (fecha,dia_semana,servicio,tipo_opcion,plato,activo,estado) VALUES ($1,'',$2,$3,$4,1,'PUBLICABLE')`,[row.fecha,row.servicio,row.tipo_opcion,row.plato]);
+        creadas++;
+      }
     }
-    for(const row of normalizadas) await c.query(`INSERT INTO minutas (fecha,dia_semana,servicio,tipo_opcion,plato,activo,estado) VALUES ($1,'',$2,$3,$4,1,'PUBLICABLE')`,[row.fecha,row.servicio,row.tipo_opcion,row.plato]);
     const fechas=[...new Set(normalizadas.map(row=>row.fecha))];
     await c.query(`UPDATE minuta_flujo_coordinacion SET estado='REQUIERE_REVALIDACION',observacion=CASE WHEN COALESCE(observacion,'')='' THEN $1 ELSE observacion||' | '||$1 END WHERE COALESCE(activo,1)=1 AND estado IN ('EN_REVISION','AUTORIZADA','PUBLICADA') AND EXISTS (SELECT 1 FROM unnest($2::text[]) fecha WHERE fecha_desde<=fecha AND fecha_hasta>=fecha)`,['Minuta cargada o editada',fechas]);
     await registrarAuditoriaTx(c,{usuario:u,accion:'CARGA_SEMIMASIVA_MINUTA'});
-    return {ok:true as const,cantidad:normalizadas.length};
+    return {ok:true as const,cantidad:normalizadas.length,creadas,actualizadas};
   });
 }
 export async function registrarAutorizacionExterna(inicio:string,fin:string,u:string,observacion:string){
