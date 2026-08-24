@@ -51,27 +51,61 @@ export async function guardarMinutas(rows:FilaMinutaInput[],u:string){
   if(!normalizadas.length) errores.push({fila:0,campo:'archivo',mensaje:'No hay filas para guardar.'});
   if(errores.length) return {ok:false as const,errores};
   return inTransaction(async c=>{
-    let creadas=0;
-    let actualizadas=0;
-    for(let index=0;index<normalizadas.length;index++){
-      const row=normalizadas[index];
-      const existentes=await c.query<{id:number}>(`SELECT id FROM minutas WHERE COALESCE(activo,1)=1 AND fecha=$1 AND servicio=$2 AND UPPER(TRIM(tipo_opcion))=$3 ORDER BY id FOR UPDATE`,[row.fecha,row.servicio,row.tipo_opcion]);
-      const cantidadExistentes=Number(existentes.rowCount||0);
-      if(cantidadExistentes>1){
-        return {ok:false as const,errores:[{fila:index+1,campo:'opcion',mensaje:`La base ya contiene ${cantidadExistentes} registros activos para ${row.fecha} · ${row.servicio} · ${row.tipo_opcion}. Corrige ese duplicado antes de continuar.`}]};
-      }
-      if(existentes.rows[0]){
-        await c.query(`UPDATE minutas SET plato=$1,activo=1,estado='PUBLICABLE' WHERE id=$2`,[row.plato,existentes.rows[0].id]);
-        actualizadas++;
-      }else{
-        await c.query(`INSERT INTO minutas (fecha,dia_semana,servicio,tipo_opcion,plato,activo,estado) VALUES ($1,'',$2,$3,$4,1,'PUBLICABLE')`,[row.fecha,row.servicio,row.tipo_opcion,row.plato]);
-        creadas++;
-      }
+    const payload=JSON.stringify(normalizadas);
+    const duplicado=await c.query<{fecha:string;servicio:string;opcion:string;cantidad:string}>(`
+      WITH incoming AS (
+        SELECT fecha,servicio,tipo_opcion,plato
+        FROM jsonb_to_recordset($1::jsonb) AS x(fecha text,servicio text,tipo_opcion text,plato text)
+      )
+      SELECT m.fecha,m.servicio,UPPER(TRIM(m.tipo_opcion)) opcion,COUNT(*)::text cantidad
+      FROM minutas m
+      JOIN incoming i ON m.fecha=i.fecha AND m.servicio=i.servicio AND UPPER(TRIM(m.tipo_opcion))=UPPER(TRIM(i.tipo_opcion))
+      WHERE COALESCE(m.activo,1)=1
+      GROUP BY m.fecha,m.servicio,UPPER(TRIM(m.tipo_opcion))
+      HAVING COUNT(*)>1
+      LIMIT 1
+    `,[payload]);
+    if(duplicado.rows[0]){
+      const d=duplicado.rows[0];
+      return {ok:false as const,errores:[{fila:0,campo:'opcion',mensaje:`La base contiene ${d.cantidad} registros activos para ${d.fecha} · ${d.servicio} · ${d.opcion}. Corrige ese duplicado antes de continuar.`}]};
     }
+
+    const result=await c.query<{actualizadas:number;creadas:number}>(`
+      WITH incoming AS (
+        SELECT fecha,servicio,tipo_opcion,plato
+        FROM jsonb_to_recordset($1::jsonb) AS x(fecha text,servicio text,tipo_opcion text,plato text)
+      ),
+      updated AS (
+        UPDATE minutas m
+           SET plato=i.plato,activo=1,estado='PUBLICABLE'
+          FROM incoming i
+         WHERE COALESCE(m.activo,1)=1
+           AND m.fecha=i.fecha
+           AND m.servicio=i.servicio
+           AND UPPER(TRIM(m.tipo_opcion))=UPPER(TRIM(i.tipo_opcion))
+        RETURNING m.id
+      ),
+      inserted AS (
+        INSERT INTO minutas (fecha,dia_semana,servicio,tipo_opcion,plato,activo,estado)
+        SELECT i.fecha,'',i.servicio,UPPER(TRIM(i.tipo_opcion)),i.plato,1,'PUBLICABLE'
+          FROM incoming i
+         WHERE NOT EXISTS (
+           SELECT 1 FROM minutas m
+            WHERE COALESCE(m.activo,1)=1
+              AND m.fecha=i.fecha
+              AND m.servicio=i.servicio
+              AND UPPER(TRIM(m.tipo_opcion))=UPPER(TRIM(i.tipo_opcion))
+         )
+        RETURNING id
+      )
+      SELECT (SELECT COUNT(*)::int FROM updated) actualizadas,
+             (SELECT COUNT(*)::int FROM inserted) creadas
+    `,[payload]);
+
     const fechas=[...new Set(normalizadas.map(row=>row.fecha))];
     await c.query(`UPDATE minuta_flujo_coordinacion SET estado='REQUIERE_REVALIDACION',observacion=CASE WHEN COALESCE(observacion,'')='' THEN $1 ELSE observacion||' | '||$1 END WHERE COALESCE(activo,1)=1 AND estado IN ('EN_REVISION','AUTORIZADA','PUBLICADA') AND EXISTS (SELECT 1 FROM unnest($2::text[]) fecha WHERE fecha_desde<=fecha AND fecha_hasta>=fecha)`,['Minuta cargada o editada',fechas]);
     await registrarAuditoriaTx(c,{usuario:u,accion:'CARGA_SEMIMASIVA_MINUTA'});
-    return {ok:true as const,cantidad:normalizadas.length,creadas,actualizadas};
+    return {ok:true as const,cantidad:normalizadas.length,creadas:Number(result.rows[0]?.creadas||0),actualizadas:Number(result.rows[0]?.actualizadas||0)};
   });
 }
 export async function registrarAutorizacionExterna(inicio:string,fin:string,u:string,observacion:string){
