@@ -137,4 +137,15 @@ No hardcodear destinatarios nuevos mientras no se confirme la configuración fin
 - Después de la última revisión se ejecutará, previa aprobación, una limpieza controlada de reservas y datos transaccionales de prueba.
 - El cierre incluirá diseño del motor interno de correos configurable por evento y destinatario.
 
-> Las siguientes rondas nocturnas deben anexarse debajo de esta sección.
+### Ronda 4 — 08:00 Chile
+
+- Head auditado previo: `725486d3`; deployment `READY` y sin errores runtime en la ventana revisada.
+- Se confirmó que el build expone todas las rutas del circuito operativo actual y `/login` responde HTTP 200.
+- Se detectó una falla post-commit en Reserva → Correo: una excepción al generar PDF/enviar correo podía responder HTTP 400 después de que la reserva ya había quedado confirmada en PostgreSQL. Corregido en `898c79d5`; deployment asociado `READY`, build y TypeScript correctos, sin errores runtime nuevos.
+- Se confirmó como pendiente de prioridad alta el uso de offset fijo `-04:00` para reglas de corte en `lib/reservation.ts`; debe migrarse a `America/Santiago` antes de operar fechas posteriores al cambio horario.
+- El motor de correos continúa parcial: no existe todavía fuente única administrable `evento → TO / CC / CCO / activo / plantilla`, Finanzas no notifica sus decisiones y Reclamos no deriva a destinatarios internos configurables.
+- El activo gráfico de septiembre sigue pendiente: `public/email/septiembre/` contiene solo `README.txt`.
+- La diferencia RC8 → Next en Usuarios/Permisos queda confirmada: existe matriz de roles en código, pero no módulo visible de administración de usuarios.
+- Detalle completo: `docs/AUDITORIA_OPERATIVA_2026-08-24_RONDA_4.md`.
+
+> Mantener datos de prueba hasta completar la prueba autenticada real del circuito completo.
