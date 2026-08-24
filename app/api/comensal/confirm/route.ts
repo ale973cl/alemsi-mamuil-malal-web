@@ -1,2 +1,2 @@
-import { NextResponse } from "next/server"; import { saveReservation } from "@/lib/reservation";
-export async function POST(req:Request){try{return NextResponse.json({ok:true,...await saveReservation(await req.json())});}catch(e:any){return NextResponse.json({error:e.message||"No fue posible guardar la reserva"},{status:400})}}
+import { NextResponse } from "next/server"; import { saveReservation } from "@/lib/reservation"; import { notificarReservaConfirmada } from "@/lib/email/notificaciones";
+export async function POST(req:Request){try{const result=await saveReservation(await req.json());const correo=result.email?await notificarReservaConfirmada({correo:result.email,codigo:result.code,referencia:result.reference,pagoToken:result.paymentToken,origin:new URL(req.url).origin}):null;return NextResponse.json({ok:true,...result,correo});}catch(e:any){return NextResponse.json({error:e.message||"No fue posible guardar la reserva"},{status:400})}}

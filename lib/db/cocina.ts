@@ -19,7 +19,7 @@ export async function demandaFecha(fecha: string): Promise<DemandaProduccion[]> 
                 (SELECT m.tipo_opcion
                    FROM minutas m
                   WHERE m.fecha=s.fecha AND m.servicio=s.servicio
-                    AND m.activo=1 AND COALESCE(m.estado,'PUBLICABLE')='PUBLICABLE'
+                    AND m.activo=1 AND m.estado='PUBLICADA'
                     AND UPPER(TRIM(m.plato))=UPPER(TRIM(COALESCE(s.plato_reservado,s.plato)))
                   ORDER BY m.id DESC LIMIT 1), '') AS tipo_opcion
          FROM solicitudes s
@@ -82,7 +82,7 @@ export async function iniciarJornada(fecha: string, usuario: string) {
                 COALESCE(NULLIF(TRIM(s.tipo_opcion),''),
                   (SELECT m.tipo_opcion FROM minutas m
                     WHERE m.fecha=s.fecha AND m.servicio=s.servicio
-                      AND m.activo=1 AND COALESCE(m.estado,'PUBLICABLE')='PUBLICABLE'
+                      AND m.activo=1 AND m.estado='PUBLICADA'
                       AND UPPER(TRIM(m.plato))=UPPER(TRIM(COALESCE(s.plato_reservado,s.plato)))
                     ORDER BY m.id DESC LIMIT 1), '') AS tipo_opcion
            FROM solicitudes s
@@ -116,16 +116,16 @@ export async function iniciarJornada(fecha: string, usuario: string) {
       const porciones = Number(row.reservadas || 0);
       await client.query(
         `INSERT INTO jornada_detalle (fecha,servicio,tipo_opcion,plato,reservadas,producidas,entregadas)
-         VALUES ($1,$2,$3,$4,$5,$5,0)
+         VALUES ($1,$2,$3,$4,$5,NULL,NULL)
          ON CONFLICT (fecha,servicio,tipo_opcion,plato)
-         DO UPDATE SET reservadas=EXCLUDED.reservadas,producidas=EXCLUDED.producidas`,
+         DO UPDATE SET reservadas=EXCLUDED.reservadas,producidas=NULL,entregadas=NULL,motivo_diferencia=NULL`,
         [fecha, row.servicio, row.tipo_opcion || '', plato, porciones],
       );
 
       const minuta = await client.query(
         `SELECT id FROM minutas
           WHERE fecha=$1 AND servicio=$2 AND activo=1
-            AND COALESCE(estado,'PUBLICABLE')='PUBLICABLE'
+            AND estado='PUBLICADA'
             AND LOWER(TRIM(plato))=LOWER(TRIM($3))
           LIMIT 1`,
         [fecha, row.servicio, plato],
@@ -189,12 +189,6 @@ export async function iniciarJornada(fecha: string, usuario: string) {
       }
     }
 
-    const detalle = [
-      sinMinuta.length ? `sin minuta: ${[...new Set(sinMinuta)].join(', ')}` : '',
-      sinReceta.length ? `sin receta aprobada: ${[...new Set(sinReceta)].join(', ')}` : '',
-      faltantesStock.length ? `stock insuficiente: ${[...new Set(faltantesStock)].join(', ')}` : '',
-    ].filter(Boolean).join('; ');
-
     await registrarAuditoriaTx(client,{usuario,accion:'INICIAR_JORNADA'});
     return { yaIniciada: false, sinMinuta, sinReceta, faltantesStock };
   });
@@ -210,7 +204,10 @@ export type CierreItem = {
 
 export async function cerrarJornada(fecha: string, usuario: string, novedades: string, items: CierreItem[]) {
   for (const item of items) {
-    if ((item.producidas !== item.reservadas || item.entregadas !== item.reservadas) && !item.motivo.trim()) {
+    if (![item.reservadas,item.producidas,item.entregadas].every(Number.isFinite)) {
+      throw new Error('Debes ingresar cantidades válidas antes de cerrar la jornada.');
+    }
+    if ((item.producidas !== item.reservadas || item.entregadas !== item.producidas) && !item.motivo.trim()) {
       throw new Error('Hay diferencias sin motivo. Debes justificarlas antes de cerrar la jornada.');
     }
   }
