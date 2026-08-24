@@ -5,5 +5,5 @@ import { redirect } from 'next/navigation';
 
 export async function cerrarSesionComensalAction(){
   await clearComensalSession();
-  redirect('/reserva');
+  redirect('/');
 }
