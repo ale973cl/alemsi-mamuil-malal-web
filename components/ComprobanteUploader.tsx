@@ -2,30 +2,36 @@
 
 import { useState } from 'react';
 
-const MAX_UPLOAD_BYTES = 3.5 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const COMPRESSION_THRESHOLD_BYTES = 3.5 * 1024 * 1024;
 const MIME_PERMITIDOS = ['application/pdf', 'image/jpeg', 'image/png'];
 
 async function prepararArchivo(file: File): Promise<File> {
   if (!['image/jpeg', 'image/png'].includes(file.type)) return file;
-  if (file.size <= MAX_UPLOAD_BYTES) return file;
+  if (file.size <= COMPRESSION_THRESHOLD_BYTES) return file;
 
+  // En móvil algunos pantallazos grandes no son compatibles con createImageBitmap/canvas.
+  // Intentamos optimizar, pero si falla conservamos el original: el servidor acepta hasta 10 MB.
   if (typeof createImageBitmap !== 'function') return file;
 
-  const bitmap = await createImageBitmap(file);
-  const maxDimension = 1600;
-  const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('No fue posible preparar la imagen.');
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
+  try {
+    const bitmap = await createImageBitmap(file);
+    const maxDimension = 1600;
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) { bitmap.close(); return file; }
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
 
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.72));
-  if (!blob) throw new Error('No fue posible comprimir la imagen.');
-  const base = file.name.replace(/\.[^.]+$/, '') || 'comprobante';
-  return new File([blob], `${base}.jpg`, { type: 'image/jpeg', lastModified: Date.now() });
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.72));
+    if (!blob) return file;
+    return new File([blob], 'comprobante.jpg', { type: 'image/jpeg', lastModified: Date.now() });
+  } catch {
+    return file;
+  }
 }
 
 function enviarConXHR(url: string, form: FormData): Promise<{ ok: boolean; status: number; error?: string }> {
@@ -54,12 +60,15 @@ export default function ComprobanteUploader({ token }: { token: string }) {
   async function upload() {
     if (!file) return setState({ loading: false, error: 'Selecciona un comprobante.', ok: false });
     if (!MIME_PERMITIDOS.includes(file.type)) return setState({ loading: false, error: 'Formato permitido: PDF, JPG o PNG.', ok: false });
+    if (file.size <= 0 || file.size > MAX_UPLOAD_BYTES) {
+      return setState({ loading: false, error: 'El archivo debe pesar hasta 10 MB.', ok: false });
+    }
 
     setState({ loading: true, error: '', ok: false });
     try {
       const preparado = await prepararArchivo(file);
       if (preparado.size > MAX_UPLOAD_BYTES) {
-        return setState({ loading: false, error: 'El archivo sigue siendo demasiado pesado. Usa un PDF o imagen de hasta 3,5 MB.', ok: false });
+        return setState({ loading: false, error: 'El archivo supera el límite de 10 MB.', ok: false });
       }
 
       const form = new FormData();
@@ -83,7 +92,7 @@ export default function ComprobanteUploader({ token }: { token: string }) {
   return (
     <div>
       <h2 className="text-lg font-extrabold text-[#0E2A23]">Carga tu comprobante</h2>
-      <p className="mt-1 text-sm text-[#6B7570]">PDF, JPG o PNG. Las fotos del teléfono se optimizan automáticamente antes de enviar.</p>
+      <p className="mt-1 text-sm text-[#6B7570]">PDF, JPG o PNG hasta 10 MB. Los pantallazos y fotos grandes se optimizan cuando el dispositivo lo permite.</p>
       <label className="mt-5 block cursor-pointer rounded-2xl border-2 border-dashed border-[#A6B0AA]/60 bg-white p-6 text-center hover:border-[#1DB954]">
         <input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="sr-only" />
         <span className="break-all font-bold text-[#0E2A23]">{file ? file.name : 'Seleccionar archivo'}</span>
