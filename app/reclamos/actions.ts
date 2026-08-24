@@ -5,6 +5,29 @@ import { getComensalSession } from '@/lib/auth/comensal-session';
 import { enviarCorreoSmtp } from '@/lib/email/smtp';
 import { redirect } from 'next/navigation';
 
+function plantillaConfirmacion(tipoOriginal:string){
+  const tipo=tipoOriginal.trim().toLowerCase();
+  if(tipo==='felicitación'||tipo==='felicitacion'){
+    return {
+      asunto:'Gracias por tu felicitación',
+      apertura:'Muchas gracias por tomarte el tiempo de compartir tu felicitación con nosotros.',
+      seguimiento:'Tu reconocimiento será compartido con el equipo o área correspondiente. Valoramos especialmente estos mensajes porque nos permiten reconocer el trabajo bien realizado.'
+    };
+  }
+  if(tipo==='sugerencia'){
+    return {
+      asunto:'Hemos recibido tu sugerencia',
+      apertura:'Gracias por compartir tu sugerencia. Tus comentarios son importantes para seguir mejorando el servicio.',
+      seguimiento:'La revisaremos y la derivaremos al área que corresponda para su evaluación. El seguimiento quedará asociado al folio indicado en este correo.'
+    };
+  }
+  return {
+    asunto:'Hemos recibido tu reclamo',
+    apertura:'Hemos recibido tu reclamo y queremos que sepas que será revisado con atención.',
+    seguimiento:'Tu experiencia nos importa y nos ayuda a mejorar. Revisaremos los antecedentes del caso y realizaremos las gestiones, solicitudes de información o acciones que correspondan. El seguimiento y la respuesta quedarán asociados al mismo folio.'
+  };
+}
+
 export async function reclamoAction(fd:FormData){
   const session=await getComensalSession();
   const rut=session?.rut||String(fd.get('rut')||'');
@@ -19,20 +42,26 @@ export async function reclamoAction(fd:FormData){
   if(registro.correo){
     try{
       const folio=`R-${String(registro.id).padStart(6,'0')}`;
+      const perfil=plantillaConfirmacion(registro.tipo);
+      const tieneArchivo=file instanceof File&&file.size>0;
       await enviarCorreoSmtp({
         to:registro.correo,
-        subject:`ALEMSI · ${registro.tipo} recibido · ${folio}`,
+        subject:`ALEMSI · ${perfil.asunto} · ${folio}`,
         text:[
           `Hola ${registro.nombre},`,
-          `Hemos recibido y registrado tu ${registro.tipo.toLowerCase()}.`,
-          `Folio: ${folio}`,
+          perfil.apertura,
+          `Folio de seguimiento: ${folio}`,
           `Fecha y hora: ${registro.fecha}`,
+          `Tipo: ${registro.tipo}`,
           `Categoría: ${registro.categoria}`,
           `Estado: Pendiente de revisión`,
-          `Mensaje: ${registro.mensaje}`,
-          file instanceof File&&file.size>0?`Antecedente adjunto registrado: ${file.name}`:'Sin archivo adjunto.',
-          'Admin Casino revisará tu solicitud. El seguimiento y la respuesta quedarán asociados a este mismo registro.',
-          'Conserva este correo como comprobante de ingreso.'
+          `Tu mensaje: ${registro.mensaje}`,
+          tieneArchivo?`Antecedente recibido: ${file.name}`:'No se adjuntaron antecedentes en este ingreso.',
+          perfil.seguimiento,
+          registro.tipo.trim().toLowerCase()==='reclamo'
+            ? 'Si necesitamos antecedentes adicionales o corresponde una gestión con Admin Casino, Coordinación, Gerencia o Finanzas, quedará vinculada a este mismo caso.'
+            : 'Conserva este correo y el folio como comprobante de ingreso y referencia de seguimiento.',
+          'ALEMSI · Servicios de Higiene y Desinfección'
         ].join('\n\n')
       });
     }catch(error){console.error('RECLAMO_SMTP_ERROR',error);}
