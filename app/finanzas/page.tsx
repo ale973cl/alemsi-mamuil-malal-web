@@ -85,6 +85,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{estado?
 
   const qsBase=new URLSearchParams();
   if(desde)qsBase.set('desde',desde);if(hasta)qsBase.set('hasta',hasta);if(institucion)qsBase.set('institucion',institucion);if(medio)qsBase.set('medio',medio);if(params.q)qsBase.set('q',String(params.q));
+  const exportQs=new URLSearchParams(qsBase);exportQs.set('estado',estado);
   const hoy=hoyChile();
   const hoyQs=new URLSearchParams(qsBase);hoyQs.set('desde',hoy);hoyQs.set('hasta',hoy);hoyQs.set('estado',estado);
 
@@ -121,6 +122,13 @@ export default async function Page({searchParams}:{searchParams:Promise<{estado?
         <span className="mx-1 hidden h-6 w-px bg-[#A6B0AA]/40 sm:inline-block"/>
         <Link href={`/finanzas?${hoyQs.toString()}`} className="rounded-full border px-3 py-1.5 text-sm font-bold">Ver hoy</Link>
         <Link href="/finanzas" className="rounded-full border px-3 py-1.5 text-sm font-bold">Limpiar filtros</Link>
+      </div>
+
+      <div className="mt-4 flex flex-col gap-3 rounded-xl border border-[#0D9B91]/30 bg-[#EEF7F6] p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div><div className="font-black text-[#0E2A23]">Exportar vista actual</div><div className="text-xs text-[#5E6B66]">Los archivos respetan período, institución, medio de pago, estado y búsqueda aplicados.</div></div>
+        <div className="flex flex-wrap gap-2">
+          {(['pdf','csv','xml'] as const).map(formato=><a key={formato} href={`/api/finanzas/exportar/${formato}?${exportQs.toString()}`} className="rounded-lg border border-[#0D9B91] bg-white px-4 py-2 text-sm font-black uppercase text-[#0E2A23] hover:bg-[#E2F4F1]">{formato}</a>)}
+        </div>
       </div>
 
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-[#6B7570]">
