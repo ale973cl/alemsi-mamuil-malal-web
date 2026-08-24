@@ -3,8 +3,14 @@ import { logoutAction } from '@/app/actions/auth';
 import type { SessionUser } from '@/lib/auth/session';
 import { HOME_BY_ROLE, MODULES_BY_ROLE, ROLE_LABEL } from '@/lib/reglas/permisos';
 
+function visibleTopLinks(user:SessionUser){
+  return MODULES_BY_ROLE[user.rol]
+    .filter(({href})=>href!=='/admin-casino/produccion')
+    .map((item)=>item.href==='/cocina'?{...item,label:'Cocina'}:item);
+}
+
 export default function AppShell({user,children}:{user:SessionUser;children:React.ReactNode}){
-  const links=MODULES_BY_ROLE[user.rol];
+  const links=visibleTopLinks(user);
   const roleLabel=ROLE_LABEL[user.rol];
 
   return <div className="min-h-screen bg-[#F6F3EA] text-[#071814]">
@@ -29,7 +35,7 @@ export default function AppShell({user,children}:{user:SessionUser;children:Reac
           </div>
         </div>
 
-        <nav className="mt-3 flex flex-wrap gap-2 border-t border-[#A6B0AA]/25 pt-3">
+        <nav className="mt-3 flex flex-wrap gap-2 border-t border-[#A6B0AA]/25 pt-3" aria-label="Módulos principales">
           <Link href={HOME_BY_ROLE[user.rol]} className="rounded-xl border border-[#0E2A23]/25 bg-white px-3 py-2 text-sm font-bold text-[#0E2A23] hover:bg-[#1DB954]/10">Inicio</Link>
           {links.map(({href,label})=><Link key={href} href={href} className="rounded-xl border border-transparent px-3 py-2 text-sm font-bold text-[#0E2A23] hover:border-[#A6B0AA]/35 hover:bg-[#1DB954]/10">{label}</Link>)}
         </nav>
