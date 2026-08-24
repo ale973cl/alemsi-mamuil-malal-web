@@ -4,7 +4,7 @@ const ORDEN_SERVICIO=['Desayuno','Almuerzo','Once','Cena'];
 function hoyChile(){return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Santiago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
 function fechaLarga(fecha:string){const [y,m,d]=fecha.split('-').map(Number);if(!y||!m||!d)return fecha;return new Intl.DateTimeFormat('es-CL',{weekday:'long',day:'numeric',month:'long',year:'numeric',timeZone:'America/Santiago'}).format(new Date(Date.UTC(y,m-1,d,12)));}
 function fechaCorta(fecha:string){const [y,m,d]=fecha.split('-').map(Number);if(!y||!m||!d)return fecha;return new Intl.DateTimeFormat('es-CL',{weekday:'short',day:'2-digit',month:'2-digit',timeZone:'America/Santiago'}).format(new Date(Date.UTC(y,m-1,d,12)));}
-function opcionCorta(v?:string){const s=String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase();if(s.includes('OPCION 1'))return'Op. 1';if(s.includes('OPCION 2'))return'Op. 2';if(s.includes('HIPO'))return'Hip.';return v||'—';}
+function opcionCorta(v?:string|null){const s=String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toUpperCase();if(s.includes('OPCION 1'))return'Op. 1';if(s.includes('OPCION 2'))return'Op. 2';if(s.includes('HIPO'))return'Hip.';return v||'—';}
 
 export default function MinutaPublicada({rows,empty='No existe minuta publicada para el período.',compactWeekly=false}:{rows:MinutaRow[];empty?:string;compactWeekly?:boolean}){
   const hoy=hoyChile();const fechas=[...new Set(rows.map(row=>String(row.fecha)))].sort();
