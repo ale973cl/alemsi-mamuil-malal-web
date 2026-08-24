@@ -2,7 +2,28 @@
 
 import { useState } from 'react';
 
-const UPLOAD_TIMEOUT_MS = 30000;
+const MAX_UPLOAD_BYTES = 3.5 * 1024 * 1024;
+
+async function prepararArchivo(file: File): Promise<File> {
+  if (!['image/jpeg', 'image/png'].includes(file.type)) return file;
+  if (file.size <= MAX_UPLOAD_BYTES) return file;
+
+  const bitmap = await createImageBitmap(file);
+  const maxDimension = 1600;
+  const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('No fue posible preparar la imagen.');
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.72));
+  if (!blob) throw new Error('No fue posible comprimir la imagen.');
+  const base = file.name.replace(/\.[^.]+$/, '') || 'comprobante';
+  return new File([blob], `${base}.jpg`, { type: 'image/jpeg', lastModified: Date.now() });
+}
 
 export default function ComprobanteUploader({ token }: { token: string }) {
   const [file, setFile] = useState<File | null>(null);
@@ -10,31 +31,28 @@ export default function ComprobanteUploader({ token }: { token: string }) {
 
   async function upload() {
     if (!file) return setState({ loading: false, error: 'Selecciona un comprobante.', ok: false });
-    if (file.size > 10 * 1024 * 1024) return setState({ loading: false, error: 'El archivo supera el máximo de 10 MB.', ok: false });
     if (!['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)) return setState({ loading: false, error: 'Formato permitido: PDF, JPG o PNG.', ok: false });
 
     setState({ loading: true, error: '', ok: false });
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), UPLOAD_TIMEOUT_MS);
-
+    const timeout = window.setTimeout(() => controller.abort(), 30000);
     try {
-      const form = new FormData();
-      form.set('file', file);
-      const response = await fetch(`/api/comprobante/${encodeURIComponent(token)}`, {
-        method: 'POST',
-        body: form,
-        signal: controller.signal,
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        setState({ loading: false, error: body.error || 'No fue posible cargar el comprobante.', ok: false });
-        return;
+      const preparado = await prepararArchivo(file);
+      if (preparado.size > MAX_UPLOAD_BYTES) {
+        return setState({ loading: false, error: 'El archivo sigue siendo demasiado pesado. Usa un PDF o imagen de hasta 3,5 MB.', ok: false });
       }
+      const form = new FormData();
+      form.set('file', preparado);
+      const response = await fetch(`/api/comprobante/${encodeURIComponent(token)}`, { method: 'POST', body: form, signal: controller.signal });
+      const text = await response.text();
+      let body: { error?: string } = {};
+      try { body = text ? JSON.parse(text) : {}; } catch { body = {}; }
+      if (!response.ok) return setState({ loading: false, error: body.error || `No fue posible cargar el comprobante (${response.status}).`, ok: false });
       setState({ loading: false, error: '', ok: true });
     } catch (error) {
       const mensaje = error instanceof DOMException && error.name === 'AbortError'
-        ? 'La carga demoró demasiado. Verifica tu conexión e inténtalo nuevamente.'
-        : 'No fue posible enviar el comprobante. Verifica tu conexión e inténtalo nuevamente.';
+        ? 'La carga tardó demasiado. Revisa tu conexión y vuelve a intentar.'
+        : error instanceof Error ? error.message : 'No fue posible cargar el comprobante.';
       setState({ loading: false, error: mensaje, ok: false });
     } finally {
       window.clearTimeout(timeout);
@@ -46,7 +64,7 @@ export default function ComprobanteUploader({ token }: { token: string }) {
   return (
     <div>
       <h2 className="text-lg font-extrabold text-[#0E2A23]">Carga tu comprobante</h2>
-      <p className="mt-1 text-sm text-[#6B7570]">PDF, JPG o PNG · máximo 10 MB.</p>
+      <p className="mt-1 text-sm text-[#6B7570]">PDF, JPG o PNG. Las fotos del teléfono se optimizan automáticamente antes de enviar.</p>
       <label className="mt-5 block cursor-pointer rounded-2xl border-2 border-dashed border-[#A6B0AA]/60 bg-white p-6 text-center hover:border-[#1DB954]">
         <input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="sr-only" />
         <span className="font-bold text-[#0E2A23]">{file ? file.name : 'Seleccionar archivo'}</span>
