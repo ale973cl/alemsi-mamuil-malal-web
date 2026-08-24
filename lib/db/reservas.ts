@@ -30,11 +30,6 @@ export async function obtenerReglasReserva(): Promise<ReglasReserva> {
   }
 }
 
-/**
- * Para comensales comerciales, cualquier reserva ACTIVA cuyo pago aún no esté
- * aprobado/pagado bloquea una nueva reserva, aunque el servicio sea futuro.
- * ALEMSI interno y Coordinadores no usan este bloqueo financiero.
- */
 export async function obtenerDeudaBloqueante(rut: string) {
   return query<{
     referencia_reserva:string;
@@ -121,7 +116,6 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
   if (!fechas.length) throw new Error('No hay fechas seleccionadas.');
   validarEleccionesPorDia(fechas, input.elecciones, institucion);
 
-  // Las restricciones de modalidad existentes también se validan en servidor.
   if (tipo === 'administrativos' && input.elecciones.some((item) => item.servicio !== 'Almuerzo')) {
     throw new Error('ALEMSI Administrativos solo puede reservar Almuerzo.');
   }
@@ -143,14 +137,13 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
     }
   }
 
-  // Nadie, incluido ALEMSI interno, puede crear una segunda reserva activa para el mismo día.
   const existentes = await query<{fecha:string;referencia_reserva:string|null;codigo_reserva:string|null}>(
     `SELECT fecha::text AS fecha,
             MAX(referencia_reserva) AS referencia_reserva,
             MAX(codigo_reserva) AS codigo_reserva
        FROM solicitudes
       WHERE rut=$1
-        AND fecha = ANY($2::date[])
+        AND fecha::date = ANY($2::date[])
         AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA'
       GROUP BY fecha
       ORDER BY fecha`,
@@ -188,7 +181,6 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
   }
 
   await inTransaction(async (client) => {
-    // Bloqueo por RUT+día evita carreras simultáneas con servicios distintos.
     for (const fecha of fechas) {
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${rut}|${fecha}|DIA`]);
       const duplicado = await client.query(
