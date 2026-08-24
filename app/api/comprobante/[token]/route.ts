@@ -4,6 +4,18 @@ import { notificarComprobanteRecibido } from '@/lib/email/notificaciones';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const MIME_PERMITIDOS = new Set(['application/pdf', 'image/jpeg', 'image/png']);
+const CORREO_TIMEOUT_MS = 2500;
+
+async function notificarSinBloquear(input: { correo: string; referencia: string; pagoToken: string; origin: string }) {
+  try {
+    await Promise.race([
+      notificarComprobanteRecibido(input),
+      new Promise((resolve) => setTimeout(resolve, CORREO_TIMEOUT_MS)),
+    ]);
+  } catch (error) {
+    console.error('ALEMSI comprobante correo:', error);
+  }
+}
 
 export async function POST(request: Request, { params }: { params: Promise<{ token: string }> }) {
   try {
@@ -28,11 +40,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
       bytes,
     });
 
-    const correo = reserva.correo
-      ? await notificarComprobanteRecibido({ correo: reserva.correo, referencia: reserva.referencia_reserva, pagoToken: token, origin: new URL(request.url).origin })
-      : null;
+    if (reserva.correo) {
+      await notificarSinBloquear({
+        correo: reserva.correo,
+        referencia: reserva.referencia_reserva,
+        pagoToken: token,
+        origin: new URL(request.url).origin,
+      });
+    }
 
-    return NextResponse.json({ ok: true, correo });
+    return NextResponse.json({ ok: true });
   } catch (error) {
     console.error('ALEMSI comprobante:', error);
     return NextResponse.json({ error: error instanceof Error ? error.message : 'No fue posible guardar el comprobante.' }, { status: 500 });
