@@ -41,6 +41,36 @@ export async function listarFinanzas(){
   );
 }
 
+export async function obtenerDatosNotificacionFinanzas(codigo:string){
+  const rows=await query<{
+    codigo_reserva:string;
+    rut:string;
+    nombre:string;
+    institucion:string;
+    correo:string;
+    pago_token:string;
+    metodo_pago:string;
+    total:number;
+  }>(
+    `SELECT s.codigo_reserva,
+            MAX(s.rut) rut,
+            COALESCE(MAX(c.nombre),'') nombre,
+            COALESCE(MAX(s.institucion),'') institucion,
+            COALESCE(NULLIF(MAX(s.correo),''),MAX(c.correo),'') correo,
+            COALESCE(MAX(s.pago_token),'') pago_token,
+            COALESCE(MAX(s.metodo_pago),'') metodo_pago,
+            SUM(COALESCE(s.precio_aplicado,s.precio,0))::numeric total
+       FROM solicitudes s
+       LEFT JOIN comensales c ON c.rut=s.rut
+      WHERE s.codigo_reserva=$1
+        AND COALESCE(s.estado_reserva,'ACTIVA')='ACTIVA'
+      GROUP BY s.codigo_reserva
+      LIMIT 1`,
+    [codigo],
+  );
+  return rows[0]??null;
+}
+
 export async function validarPago(codigo:string,estado:'Pagado'|'Rechazado',usuario:string,motivo:string){
   const motivoLimpio=motivo.trim();
   if(estado==='Rechazado'&&!motivoLimpio) throw new Error('Debes indicar el motivo del rechazo.');
