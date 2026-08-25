@@ -3,7 +3,7 @@
 import { headers } from 'next/headers';
 import { after } from 'next/server';
 import { crearComensal, listarInstitucionesActivas, obtenerComensal, obtenerPrecioPersona } from '@/lib/db/comensales';
-import { notificarReservaConfirmada } from '@/lib/email/notificaciones';
+import { notificarReservaConfirmadaDinamica } from '@/lib/email/reserva-confirmacion';
 import { obtenerMinutasRango } from '@/lib/db/minutas';
 import { crearOActualizarReserva, obtenerDeudaBloqueante, obtenerReglasReserva } from '@/lib/db/reservas';
 import { setComensalSession } from '@/lib/auth/comensal-session';
@@ -65,6 +65,7 @@ export async function cargarMinutaDisponible(rutInput: string, inicio: string, f
 export async function confirmarReserva(input: { rut: string; elecciones: EleccionReserva[]; metodoPago?: 'Transferencia bancaria' | 'Débito en la instalación'; }) {
   try {
     const result = await crearOActualizarReserva(input);
+    const persona = await obtenerComensal(input.rut);
     const h = await headers();
     const host = h.get('x-forwarded-host') || h.get('host');
     const proto = h.get('x-forwarded-proto') || 'https';
@@ -72,6 +73,7 @@ export async function confirmarReserva(input: { rut: string; elecciones: Eleccio
     if (result.correo && host) {
       const mensaje = {
         correo: result.correo,
+        nombre: persona?.nombre || '',
         codigo: result.codigoReserva,
         referencia: result.codigoReserva,
         pagoToken: result.pagoToken,
@@ -84,7 +86,7 @@ export async function confirmarReserva(input: { rut: string; elecciones: Eleccio
       after(async () => {
         console.info('RESERVA_SMTP_START');
         try {
-          const correo = await notificarReservaConfirmada(mensaje);
+          const correo = await notificarReservaConfirmadaDinamica(mensaje);
           if (correo.ok) console.info('RESERVA_SMTP_OK');
           else console.error('RESERVA_SMTP_ERROR', correo.errorType);
         } catch {
