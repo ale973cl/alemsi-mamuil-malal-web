@@ -1,25 +1,46 @@
 @import 'tailwindcss';
 
 :root {
+  --alemsi-navy: #0B2D5B;
+  --alemsi-navy-deep: #071D36;
+  --alemsi-turquoise: #0D9B91;
+  --alemsi-turquoise-light: #7FE1D6;
   --alemsi-green: #1DB954;
-  --alemsi-green-dark: #0E2A23;
-  --alemsi-green-deep: #071814;
   --alemsi-gold: #D4AF37;
   --alemsi-gray-light: #A6B0AA;
   --alemsi-gray-mid: #6B7570;
   --alemsi-cream: #F6F3EA;
   --alemsi-card: #FFFDF8;
+
+  /* aliases históricos para que toda la app use la misma paleta sin romper componentes */
+  --alemsi-green-dark: var(--alemsi-navy);
+  --alemsi-green-deep: var(--alemsi-navy-deep);
 }
 
 html { background: var(--alemsi-cream); }
 body {
   margin: 0;
   background: linear-gradient(180deg, #fbfaf5 0%, var(--alemsi-cream) 100%);
-  color: var(--alemsi-green-deep);
+  color: var(--alemsi-navy-deep);
   font-family: Arial, Helvetica, sans-serif;
 }
 button, input, select { font: inherit; }
 button:focus-visible, input:focus-visible, select:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--alemsi-green) 35%, transparent);
+  outline: 3px solid color-mix(in srgb, var(--alemsi-turquoise) 35%, transparent);
   outline-offset: 2px;
 }
+
+/* Barrido transversal: remapea los colores históricos hardcodeados a la paleta ALEMSI/Alemzín. */
+[class*="bg-[#0E2A23]"] { background-color: var(--alemsi-navy) !important; }
+[class*="bg-[#071814]"] { background-color: var(--alemsi-navy-deep) !important; }
+[class*="bg-[#1DB954]"] { background-color: var(--alemsi-turquoise) !important; }
+[class*="text-[#0E2A23]"] { color: var(--alemsi-navy) !important; }
+[class*="text-[#071814]"] { color: var(--alemsi-navy-deep) !important; }
+[class*="text-[#1DB954]"] { color: var(--alemsi-turquoise) !important; }
+[class*="border-[#1DB954]"] { border-color: var(--alemsi-turquoise) !important; }
+[class*="border-[#0E2A23]"] { border-color: var(--alemsi-navy) !important; }
+[class*="ring-[#1DB954]"] { --tw-ring-color: var(--alemsi-turquoise) !important; }
+[class*="from-[#0E2A23]"] { --tw-gradient-from: var(--alemsi-navy) var(--tw-gradient-from-position) !important; }
+[class*="to-[#071814]"] { --tw-gradient-to: var(--alemsi-navy-deep) var(--tw-gradient-to-position) !important; }
+
+::selection { background: color-mix(in srgb, var(--alemsi-turquoise) 28%, white); }
