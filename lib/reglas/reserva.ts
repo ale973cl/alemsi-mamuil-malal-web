@@ -111,8 +111,9 @@ function finDiaCorteReservaEpoch(
   timeZone = 'America/Santiago',
 ): number {
   // La anticipación se aplica por días calendario completos, no por hora de servicio.
-  // Ej.: con 72 h (3 días), Almuerzo y Cena del viernes permanecen disponibles
-  // durante todo el martes y ambos se cierran juntos al terminar ese día en Chile.
+  // Regla operativa actual: 48 h = 2 días calendario.
+  // Ej.: para un servicio del viernes, Almuerzo y Cena permanecen disponibles
+  // durante todo el miércoles y se cierran juntos al llegar las 00:00 del jueves (Chile).
   const diasAnticipacion = Math.max(0, Math.ceil(Number(anticipacionHoras || 0) / 24));
   const [year, month, day] = fechaIso.split('-').map(Number);
   const fechaCorteUtc = new Date(Date.UTC(year, month - 1, day));
