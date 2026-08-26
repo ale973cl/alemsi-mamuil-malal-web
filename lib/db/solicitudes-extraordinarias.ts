@@ -30,6 +30,15 @@ async function asegurarTabla() {
   await query(`CREATE INDEX IF NOT EXISTS idx_solicitudes_extraordinarias_rut ON solicitudes_extraordinarias(rut,fecha)`);
 }
 
+async function jornadaFinalizada(fecha:string){
+  const rows=await query<{estado:string}>(`SELECT estado FROM jornadas_produccion WHERE fecha=$1 LIMIT 1`,[fecha]);
+  return String(rows[0]?.estado||'')==='Finalizado';
+}
+
+function mensajeJornadaCerrada(fecha:string){
+  return `La jornada de producción del ${fecha} ya fue finalizada. El servicio se considera cerrado y no admite solicitudes de excepción.`;
+}
+
 export async function crearSolicitudExtraordinaria(input:{
   rut:string;
   tipo:TipoSolicitudExtraordinaria;
@@ -47,6 +56,7 @@ export async function crearSolicitudExtraordinaria(input:{
     const rows=await query<any>(`SELECT id,rut,referencia_reserva,fecha,servicio,COALESCE(plato_reservado,plato) plato,COALESCE(estado_reserva,'ACTIVA') estado_reserva FROM solicitudes WHERE id=$1 AND rut=$2 LIMIT 1`,[Number(input.solicitudId||0),rut]);
     const row=rows[0];
     if(!row||row.estado_reserva!=='ACTIVA') throw new Error('Ese servicio ya no está activo.');
+    if(await jornadaFinalizada(String(row.fecha))) throw new Error(mensajeJornadaCerrada(String(row.fecha)));
     const dup=await query<any>(`SELECT id FROM solicitudes_extraordinarias WHERE rut=$1 AND solicitud_id=$2 AND tipo='ANULACION_SERVICIO' AND estado='PENDIENTE' LIMIT 1`,[rut,row.id]);
     if(dup[0]) throw new Error('Ya existe una solicitud extraordinaria pendiente para ese servicio.');
     await query(`INSERT INTO solicitudes_extraordinarias (rut,referencia_reserva,solicitud_id,fecha,servicio,plato,tipo,motivo) VALUES ($1,$2,$3,$4,$5,$6,'ANULACION_SERVICIO',$7)`,[rut,row.referencia_reserva,row.id,row.fecha,row.servicio,row.plato,motivo]);
@@ -55,6 +65,7 @@ export async function crearSolicitudExtraordinaria(input:{
 
   const fecha=String(input.fecha||'');
   if(!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) throw new Error('Fecha inválida.');
+  if(await jornadaFinalizada(fecha)) throw new Error(mensajeJornadaCerrada(fecha));
   const lineas=await query<any>(`SELECT id,referencia_reserva,fecha,servicio,COALESCE(plato_reservado,plato) plato FROM solicitudes WHERE rut=$1 AND fecha=$2 AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA' ORDER BY servicio,id`,[rut,fecha]);
   if(!lineas.length) throw new Error('No hay servicios activos para esa fecha.');
   const dup=await query<any>(`SELECT id FROM solicitudes_extraordinarias WHERE rut=$1 AND fecha=$2 AND tipo='NO_CONSUMIRA_DIA' AND estado='PENDIENTE' LIMIT 1`,[rut,fecha]);
@@ -82,7 +93,7 @@ export async function listarSolicitudesExtraordinarias(estado:EstadoSolicitudExt
 async function descontarProduccion(client:any,row:any,solicitudExtraId:number,usuario:string){
   const jornada=await client.query(`SELECT estado FROM jornadas_produccion WHERE fecha=$1 LIMIT 1`,[row.fecha]);
   const estado=String(jornada.rows[0]?.estado||'');
-  if(estado==='Finalizado') throw new Error(`La jornada ${row.fecha} ya está finalizada y no puede modificarse.`);
+  if(estado==='Finalizado') throw new Error(mensajeJornadaCerrada(String(row.fecha)));
   if(estado!=='En producción') {
     await registrarAuditoriaTx(client,{usuario,accion:`ANULACION_EXTRA|${solicitudExtraId}|${row.referencia_reserva}|${row.fecha}|${row.servicio}|${row.plato}|conteo_dinamico`});
     return;
@@ -118,6 +129,9 @@ export async function resolverSolicitudExtraordinaria(input:{id:number;decision:
       await registrarAuditoriaTx(client,{usuario:input.usuario,accion:`RECHAZAR_ANULACION_EXTRA|${input.id}|${sol.rut}|${sol.fecha}`});
       return {cantidad:0};
     }
+
+    const jornada=await client.query(`SELECT estado FROM jornadas_produccion WHERE fecha=$1 LIMIT 1`,[sol.fecha]);
+    if(String(jornada.rows[0]?.estado||'')==='Finalizado') throw new Error(mensajeJornadaCerrada(String(sol.fecha)));
 
     let lineas:any[]=[];
     if(sol.tipo==='ANULACION_SERVICIO'){
