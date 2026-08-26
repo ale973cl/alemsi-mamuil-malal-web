@@ -105,6 +105,28 @@ function fechaHoraServicioEpoch(fechaIso: string, servicio: string, timeZone = '
   return zonedEpoch(year, month, day, hora, 0, timeZone);
 }
 
+function finDiaCorteReservaEpoch(
+  fechaIso: string,
+  anticipacionHoras: number,
+  timeZone = 'America/Santiago',
+): number {
+  // La anticipación se aplica por días calendario completos, no por hora de servicio.
+  // Ej.: con 72 h (3 días), Almuerzo y Cena del viernes permanecen disponibles
+  // durante todo el martes y ambos se cierran juntos al terminar ese día en Chile.
+  const diasAnticipacion = Math.max(0, Math.ceil(Number(anticipacionHoras || 0) / 24));
+  const [year, month, day] = fechaIso.split('-').map(Number);
+  const fechaCorteUtc = new Date(Date.UTC(year, month - 1, day));
+  fechaCorteUtc.setUTCDate(fechaCorteUtc.getUTCDate() - diasAnticipacion);
+  return zonedEpoch(
+    fechaCorteUtc.getUTCFullYear(),
+    fechaCorteUtc.getUTCMonth() + 1,
+    fechaCorteUtc.getUTCDate(),
+    23,
+    59,
+    timeZone,
+  ) + 59_999;
+}
+
 export function servicioYaOcurrio(
   fechaIso:string,
   servicio:string,
@@ -138,12 +160,12 @@ export function consolidarDeudaPasada(lineas:LineaDeuda[],ahora=new Date()):Deud
 
 export function reservaComercialHabilitada(
   fechaIso: string,
-  servicio: string,
+  _servicio: string,
   anticipacionHoras: number,
   ahora = new Date(),
   timeZone = 'America/Santiago',
 ): boolean {
-  return ahora.getTime() <= fechaHoraServicioEpoch(fechaIso, servicio, timeZone) - anticipacionHoras * 3_600_000;
+  return ahora.getTime() <= finDiaCorteReservaEpoch(fechaIso, anticipacionHoras, timeZone);
 }
 
 export function cancelacionDirectaHabilitada(
