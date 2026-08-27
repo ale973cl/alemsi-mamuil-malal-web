@@ -18,7 +18,12 @@ export function validRut(value:string){
 export function serviceDate(fecha:string, servicio:string){
   const hour=SERVICE_HOURS[servicio] ?? 12; return new Date(`${fecha}T${String(hour).padStart(2,"0")}:00:00-04:00`);
 }
-export function isWithinCutoff(fecha:string, servicio:string, hours:number){ return Date.now() <= serviceDate(fecha,servicio).getTime()-hours*3600_000; }
+export function reservationDayCutoff(fecha:string,hours:number){
+  const dayStart=new Date(`${fecha}T00:00:00-04:00`).getTime();
+  const fullDays=Math.max(1,Math.ceil(Number(hours||0)/24));
+  return dayStart-(fullDays-1)*24*3600_000;
+}
+export function isWithinCutoff(fecha:string,_servicio:string,hours:number){ return Date.now() < reservationDayCutoff(fecha,hours); }
 export function maxConsecutive(fechas:string[]){
   const ds=[...new Set(fechas)].sort(); let best=0,cur=0,prev:number|null=null;
   for(const d of ds){ const t=new Date(`${d}T12:00:00Z`).getTime(); cur=prev!==null && t-prev===86400000?cur+1:1; best=Math.max(best,cur); prev=t; }
