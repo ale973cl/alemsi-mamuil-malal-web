@@ -138,12 +138,16 @@ export function consolidarDeudaPasada(lineas:LineaDeuda[],ahora=new Date()):Deud
 
 export function reservaComercialHabilitada(
   fechaIso: string,
-  servicio: string,
+  _servicio: string,
   anticipacionHoras: number,
   ahora = new Date(),
   timeZone = 'America/Santiago',
 ): boolean {
-  return ahora.getTime() <= fechaHoraServicioEpoch(fechaIso, servicio, timeZone) - anticipacionHoras * 3_600_000;
+  const [year, month, day] = fechaIso.split('-').map(Number);
+  const inicioDia = zonedEpoch(year, month, day, 0, 0, timeZone);
+  const diasCompletos = Math.max(1, Math.ceil(Number(anticipacionHoras || 0) / 24));
+  const cierre = inicioDia - (diasCompletos - 1) * 86_400_000;
+  return ahora.getTime() < cierre;
 }
 
 export function cancelacionDirectaHabilitada(
