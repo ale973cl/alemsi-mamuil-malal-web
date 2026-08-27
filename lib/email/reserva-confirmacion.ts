@@ -8,6 +8,7 @@ type Choice={fecha:string;servicio:string;plato:string;tipo_opcion?:string};
 
 export type ReservaConfirmacionInput={
   correo:string;
+  cc?:string[];
   nombre?:string;
   codigo:string;
   referencia:string;
@@ -91,6 +92,7 @@ export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmaci
   const pdf=await generarReservaPdf({codigo:input.codigo,rut:input.rut,total:input.total,choices:input.choices});
   return enviarCorreoSmtp({
     to:input.correo,
+    cc:input.cc,
     subject:`Reserva confirmada ${input.codigo} · ALEMSI`,
     text,
     html,
