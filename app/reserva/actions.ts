@@ -31,11 +31,13 @@ export async function identificarComensal(rutInput: string) {
 
 const correoValido=(valor:string)=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor);
 const telefonoValido=(valor:string)=>/^\+?56\s?9\s?\d{4}\s?\d{4}$/.test(valor.replace(/[()-]/g,' ').replace(/\s+/g,' ').trim())||/^9\d{8}$/.test(valor.replace(/\D/g,''));
+const nombreApellidoValido=(valor:string)=>valor.trim().split(/\s+/).filter(Boolean).length>=2;
 
 export async function registrarNuevoComensal(input:{rut:string;nombre:string;telefono:string;correo:string;institucion:string}) {
   try {
     if(!validarRutM11(input.rut)) return {ok:false as const,error:'RUT inválido.'};
     if(!input.nombre.trim()||!input.institucion.trim()) return {ok:false as const,error:'Completa nombre e institución.'};
+    if(!nombreApellidoValido(input.nombre)) return {ok:false as const,error:'Ingresa nombre y apellido, por ejemplo: Juan Pérez.'};
     if(!correoValido(input.correo.trim())) return {ok:false as const,error:'Correo inválido.'};
     if(!telefonoValido(input.telefono)) return {ok:false as const,error:'Ingresa un móvil chileno válido.'};
     const instituciones=await listarInstitucionesActivas();
