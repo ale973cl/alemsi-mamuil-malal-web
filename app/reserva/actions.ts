@@ -31,16 +31,19 @@ export async function identificarComensal(rutInput: string) {
 
 const correoValido=(valor:string)=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor);
 const telefonoValido=(valor:string)=>/^\+?56\s?9\s?\d{4}\s?\d{4}$/.test(valor.replace(/[()-]/g,' ').replace(/\s+/g,' ').trim())||/^9\d{8}$/.test(valor.replace(/\D/g,''));
+const nombreCompletoValido=(valor:string)=>valor.trim().split(/\s+/).filter(parte=>/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/.test(parte)).length>=2;
+const correosCopiaReserva=()=>[...new Set(String(process.env.RESERVA_EMAIL_CC||'').split(/[;,]/).map(v=>v.trim().toLowerCase()).filter(correoValido))].slice(0,2);
 
 export async function registrarNuevoComensal(input:{rut:string;nombre:string;telefono:string;correo:string;institucion:string}) {
   try {
     if(!validarRutM11(input.rut)) return {ok:false as const,error:'RUT inválido.'};
     if(!input.nombre.trim()||!input.institucion.trim()) return {ok:false as const,error:'Completa nombre e institución.'};
+    if(!nombreCompletoValido(input.nombre)) return {ok:false as const,error:'Ingresa nombre y apellido, por ejemplo: Juan Pérez.'};
     if(!correoValido(input.correo.trim())) return {ok:false as const,error:'Correo inválido.'};
     if(!telefonoValido(input.telefono)) return {ok:false as const,error:'Ingresa un móvil chileno válido.'};
     const instituciones=await listarInstitucionesActivas();
     if(!instituciones.includes(input.institucion.trim())) return {ok:false as const,error:'Selecciona una institución válida.'};
-    await crearComensal(input);
+    await crearComensal({...input,nombre:input.nombre.trim().replace(/\s+/g,' ')});
     const perfil=await identificarComensal(input.rut);
     if(!perfil.ok) return {ok:false as const,error:'No fue posible cargar la ficha registrada.'};
     return perfil;
@@ -73,6 +76,7 @@ export async function confirmarReserva(input: { rut: string; elecciones: Eleccio
     if (result.correo && host) {
       const mensaje = {
         correo: result.correo,
+        cc: correosCopiaReserva(),
         nombre: persona?.nombre || '',
         codigo: result.codigoReserva,
         referencia: result.codigoReserva,
