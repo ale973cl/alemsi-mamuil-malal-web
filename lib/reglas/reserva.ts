@@ -77,8 +77,6 @@ function zonedEpoch(
   minute = 0,
   timeZone = 'America/Santiago',
 ): number {
-  // Convierte una hora de pared de Chile a epoch UTC sin depender de la zona horaria
-  // del runtime de Vercel. Dos iteraciones resuelven también cambios DST.
   let guess = Date.UTC(year, month - 1, day, hour, minute, 0);
   const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone,
@@ -103,6 +101,25 @@ function fechaHoraServicioEpoch(fechaIso: string, servicio: string, timeZone = '
   const hora = HORAS_SERVICIO[servicio] ?? 12;
   const [year, month, day] = fechaIso.split('-').map(Number);
   return zonedEpoch(year, month, day, hora, 0, timeZone);
+}
+
+function finDiaCorteReservaEpoch(
+  fechaIso: string,
+  anticipacionHoras: number,
+  timeZone = 'America/Santiago',
+): number {
+  const diasAnticipacion = Math.max(0, Math.ceil(Number(anticipacionHoras || 0) / 24));
+  const [year, month, day] = fechaIso.split('-').map(Number);
+  const fechaCorteUtc = new Date(Date.UTC(year, month - 1, day));
+  fechaCorteUtc.setUTCDate(fechaCorteUtc.getUTCDate() - diasAnticipacion);
+  return zonedEpoch(
+    fechaCorteUtc.getUTCFullYear(),
+    fechaCorteUtc.getUTCMonth() + 1,
+    fechaCorteUtc.getUTCDate(),
+    23,
+    59,
+    timeZone,
+  ) + 59_999;
 }
 
 export function servicioYaOcurrio(
@@ -138,12 +155,12 @@ export function consolidarDeudaPasada(lineas:LineaDeuda[],ahora=new Date()):Deud
 
 export function reservaComercialHabilitada(
   fechaIso: string,
-  servicio: string,
+  _servicio: string,
   anticipacionHoras: number,
   ahora = new Date(),
   timeZone = 'America/Santiago',
 ): boolean {
-  return ahora.getTime() <= fechaHoraServicioEpoch(fechaIso, servicio, timeZone) - anticipacionHoras * 3_600_000;
+  return ahora.getTime() <= finDiaCorteReservaEpoch(fechaIso, anticipacionHoras, timeZone);
 }
 
 export function cancelacionDirectaHabilitada(
