@@ -128,7 +128,7 @@ export default function MinutaCarga({ platos }: { platos: Array<{ plato: string;
       )
     );
     setSemanaActiva(0);
-    setMessage(`Matriz creada para ${f.length} día(s). Completa los platos antes de guardar.`);
+    setMessage(`Matriz creada para ${f.length} día(s). Completa los platos antes de publicar.`);
   }
 
   async function csvChanged(file?: File) {
@@ -143,7 +143,7 @@ export default function MinutaCarga({ platos }: { platos: Array<{ plato: string;
         setFin(fs[fs.length - 1]);
       }
       setSemanaActiva(0);
-      setMessage(`CSV leído: ${parsed.length} registros. Revisa la matriz antes de guardar.`);
+      setMessage(`CSV leído: ${parsed.length} registros. Revisa la matriz antes de publicar.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'CSV inválido.');
     }
@@ -152,19 +152,19 @@ export default function MinutaCarga({ platos }: { platos: Array<{ plato: string;
   async function save() {
     setMessage('');
     if (errors.length) {
-      setMessage('Corrige los errores obligatorios indicados antes de guardar.');
+      setMessage('Corrige los errores obligatorios indicados antes de publicar.');
       return;
     }
     setSaving(true);
     try {
       const result = await guardarMinutasAction(rows);
       if (result.ok) {
-        setMessage(`${result.cantidad} registros guardados como PUBLICABLE. Ya puedes enviarlos a Coordinación o publicarlos.`);
+        setMessage(`${result.cantidad} registros guardados y PUBLICADOS. La minuta ya está disponible para los perfiles y para Comensal según sus reglas de reserva.`);
       } else {
         setMessage(result.errores.map(error => `Fila ${error.fila}: ${error.mensaje}`).join(' | '));
       }
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'No fue posible guardar la minuta.');
+      setMessage(error instanceof Error ? error.message : 'No fue posible guardar y publicar la minuta.');
     } finally {
       setSaving(false);
     }
@@ -182,8 +182,8 @@ export default function MinutaCarga({ platos }: { platos: Array<{ plato: string;
     <div className="mt-4 rounded-2xl border bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h3 className="text-lg font-black">Cargar y previsualizar minuta</h3>
-          <p className="mt-1 text-sm text-[#6B7570]">CSV o carga manual. La presentación siempre queda como minuta semanal editable.</p>
+          <h3 className="text-lg font-black">Cargar, revisar y publicar minuta</h3>
+          <p className="mt-1 text-sm text-[#6B7570]">CSV o carga manual. Revisa la previsualización y luego usa Publicar minuta.</p>
         </div>
         <label className="cursor-pointer rounded-lg bg-[#0E2A23] px-4 py-2 text-sm font-black text-white">
           Cargar CSV
@@ -212,7 +212,7 @@ export default function MinutaCarga({ platos }: { platos: Array<{ plato: string;
               <h4 className="font-black">Previsualización editable</h4>
               <p className="text-sm text-[#6B7570]">{fechas.length} día(s) · {rows.length} registros · {semanas.length} semana(s)</p>
             </div>
-            <span className="rounded-full bg-[#D4AF37]/20 px-3 py-1 text-xs font-black">PREVISUALIZACIÓN · NO PUBLICADA</span>
+            <span className="rounded-full bg-[#D4AF37]/20 px-3 py-1 text-xs font-black">PREVISUALIZACIÓN · LISTA PARA PUBLICAR</span>
           </div>
 
           {semanas.length > 1 && (
@@ -303,7 +303,7 @@ export default function MinutaCarga({ platos }: { platos: Array<{ plato: string;
 
       <div className="mt-4 flex flex-wrap gap-2">
         <button type="button" onClick={save} disabled={saving || !rows.length || errors.length > 0} className="rounded-lg bg-[#1DB954] px-5 py-2.5 font-black disabled:opacity-40">
-          {saving ? 'Guardando…' : 'Guardar como PUBLICABLE'}
+          {saving ? 'Publicando…' : 'Publicar minuta'}
         </button>
         {rows.length > 0 && (
           <button type="button" onClick={() => { setRows([]); setSemanaActiva(0); }} className="rounded-lg border px-4 py-2 font-bold">Limpiar previsualización</button>
