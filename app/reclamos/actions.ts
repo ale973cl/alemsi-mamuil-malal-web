@@ -2,7 +2,7 @@
 import { guardarReclamo } from '@/lib/db/comensal-gestion';
 import { agregarAdjuntoInicial } from '@/lib/db/reclamos';
 import { getComensalSession } from '@/lib/auth/comensal-session';
-import { enviarCorreoSmtp } from '@/lib/email/smtp';
+import { enviarCorreoSmtp, type SmtpAttachment } from '@/lib/email/smtp';
 import { redirect } from 'next/navigation';
 
 function esc(v:unknown){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c));}
@@ -34,45 +34,78 @@ function plantillaConfirmacion(tipoOriginal:string){
   };
 }
 
+function correoValido(valor:string){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor);}
+function destinoInterno(categoriaOriginal:string){
+  const categoria=categoriaOriginal.trim().toLowerCase();
+  if(categoria.includes('deuda')||categoria.includes('pago')||categoria.includes('cobro')) return 'finanzas@alemsi.cl';
+  if(categoria.includes('comida')||categoria.includes('aliment')){
+    const correo=String(process.env.RECLAMOS_EMAIL_ALIMENTACION||'').trim();
+    return correoValido(correo)?correo:'';
+  }
+  const defecto=String(process.env.RECLAMOS_EMAIL_DEFAULT||'').trim();
+  return correoValido(defecto)?defecto:'';
+}
+
 export async function reclamoAction(fd:FormData){
   const session=await getComensalSession();
   const rut=session?.rut||String(fd.get('rut')||'');
   const registro=await guardarReclamo(rut,String(fd.get('tipo')||''),String(fd.get('categoria')||''),String(fd.get('mensaje')||''));
   const file=fd.get('archivo');
+  let adjunto:SmtpAttachment|undefined;
   if(file instanceof File&&file.size>0){
     if(file.size>10*1024*1024) throw new Error('El archivo supera 10 MB.');
     const permitidos=['application/pdf','image/jpeg','image/png','image/webp'];
     if(!permitidos.includes(file.type)) throw new Error('Adjunta PDF, JPG, PNG o WEBP.');
-    await agregarAdjuntoInicial({reclamoId:registro.id,actor:registro.nombre||registro.rut,nombre:file.name||'antecedente',mime:file.type,bytes:new Uint8Array(await file.arrayBuffer())});
+    const bytes=new Uint8Array(await file.arrayBuffer());
+    await agregarAdjuntoInicial({reclamoId:registro.id,actor:registro.nombre||registro.rut,nombre:file.name||'antecedente',mime:file.type,bytes});
+    adjunto={filename:file.name||'antecedente',contentType:file.type,content:bytes};
   }
+
+  const folio=`R-${String(registro.id).padStart(6,'0')}`;
+  const tieneArchivo=Boolean(adjunto);
   if(registro.correo){
-    try{
-      const folio=`R-${String(registro.id).padStart(6,'0')}`;
-      const perfil=plantillaConfirmacion(registro.tipo);
-      const tieneArchivo=file instanceof File&&file.size>0;
-      const detalleGestion=registro.tipo.trim().toLowerCase()==='reclamo'
-        ? 'Si necesitamos antecedentes adicionales o corresponde una gestión con Admin Casino, Coordinación, Gerencia o Finanzas, quedará vinculada a este mismo caso.'
-        : 'Conserva este correo y el folio como comprobante de ingreso y referencia de seguimiento.';
-      const html=layout(perfil.asunto,`
-        <p style="margin:0 0 16px;font-size:14px;line-height:1.55;color:#42515a">Hola <b>${esc(registro.nombre)}</b>,</p>
-        <p style="margin:0 0 18px;font-size:14px;line-height:1.55;color:#42515a">${esc(perfil.apertura)}</p>
-        <table role="presentation" width="100%" style="border-collapse:collapse;background:#f7faf8;border:1px solid #d7e1dc">
-          <tr><td style="padding:8px;color:#5b6670;width:38%">Folio de seguimiento</td><td style="padding:8px;font-weight:800;color:#0B2D5B">${esc(folio)}</td></tr>
-          <tr><td style="padding:8px;color:#5b6670">Fecha y hora</td><td style="padding:8px;font-weight:700">${esc(registro.fecha)}</td></tr>
-          <tr><td style="padding:8px;color:#5b6670">Tipo</td><td style="padding:8px;font-weight:700">${esc(registro.tipo)}</td></tr>
-          <tr><td style="padding:8px;color:#5b6670">Categoría</td><td style="padding:8px;font-weight:700">${esc(registro.categoria)}</td></tr>
-          <tr><td style="padding:8px;color:#5b6670">Estado</td><td style="padding:8px;font-weight:800;color:#087A46">Pendiente de revisión</td></tr>
-        </table>
-        <div style="margin-top:18px;padding:14px 16px;background:#eef7f6;border:1px solid #cfe5df;border-radius:8px;font-size:14px;line-height:1.5;color:#24434a"><b>Tu mensaje</b><br>${esc(registro.mensaje)}</div>
-        <div style="margin-top:14px;padding:12px 14px;background:#f7faf8;border:1px solid #d7e1dc;border-radius:8px;font-size:13px;color:#42515a">${tieneArchivo?`<b>Antecedente recibido:</b> ${esc(file.name)}`:'No se adjuntaron antecedentes en este ingreso.'}</div>
-        <p style="margin:18px 0 0;font-size:13px;line-height:1.55;color:#42515a">${esc(perfil.seguimiento)}</p>
-        <p style="margin:10px 0 0;font-size:13px;line-height:1.55;color:#42515a">${esc(detalleGestion)}</p>`);
-      const text=[
-        `Hola ${registro.nombre},`,perfil.apertura,`Folio de seguimiento: ${folio}`,`Fecha y hora: ${registro.fecha}`,`Tipo: ${registro.tipo}`,`Categoría: ${registro.categoria}`,'Estado: Pendiente de revisión',`Tu mensaje: ${registro.mensaje}`,
-        tieneArchivo?`Antecedente recibido: ${file.name}`:'No se adjuntaron antecedentes en este ingreso.',perfil.seguimiento,detalleGestion,'ALEMSI · Casino Mamuil'
-      ].join('\n\n');
-      await enviarCorreoSmtp({to:registro.correo,subject:`ALEMSI · ${perfil.asunto} · ${folio}`,text,html});
-    }catch(error){console.error('RECLAMO_SMTP_ERROR',error);}
+    const perfil=plantillaConfirmacion(registro.tipo);
+    const detalleGestion=registro.tipo.trim().toLowerCase()==='reclamo'
+      ? 'Si necesitamos antecedentes adicionales o corresponde una gestión con Admin Casino, Coordinación, Gerencia o Finanzas, quedará vinculada a este mismo caso.'
+      : 'Conserva este correo y el folio como comprobante de ingreso y referencia de seguimiento.';
+    const html=layout(perfil.asunto,`
+      <p style="margin:0 0 16px;font-size:14px;line-height:1.55;color:#42515a">Hola <b>${esc(registro.nombre)}</b>,</p>
+      <p style="margin:0 0 18px;font-size:14px;line-height:1.55;color:#42515a">${esc(perfil.apertura)}</p>
+      <table role="presentation" width="100%" style="border-collapse:collapse;background:#f7faf8;border:1px solid #d7e1dc">
+        <tr><td style="padding:8px;color:#5b6670;width:38%">Folio de seguimiento</td><td style="padding:8px;font-weight:800;color:#0B2D5B">${esc(folio)}</td></tr>
+        <tr><td style="padding:8px;color:#5b6670">Fecha y hora</td><td style="padding:8px;font-weight:700">${esc(registro.fecha)}</td></tr>
+        <tr><td style="padding:8px;color:#5b6670">Tipo</td><td style="padding:8px;font-weight:700">${esc(registro.tipo)}</td></tr>
+        <tr><td style="padding:8px;color:#5b6670">Categoría</td><td style="padding:8px;font-weight:700">${esc(registro.categoria)}</td></tr>
+        <tr><td style="padding:8px;color:#5b6670">Estado</td><td style="padding:8px;font-weight:800;color:#087A46">Pendiente de revisión</td></tr>
+      </table>
+      <div style="margin-top:18px;padding:14px 16px;background:#eef7f6;border:1px solid #cfe5df;border-radius:8px;font-size:14px;line-height:1.5;color:#24434a"><b>Tu mensaje</b><br>${esc(registro.mensaje)}</div>
+      <div style="margin-top:14px;padding:12px 14px;background:#f7faf8;border:1px solid #d7e1dc;border-radius:8px;font-size:13px;color:#42515a">${tieneArchivo?`<b>Antecedente recibido:</b> ${esc(adjunto?.filename)}`:'No se adjuntaron antecedentes en este ingreso.'}</div>
+      <p style="margin:18px 0 0;font-size:13px;line-height:1.55;color:#42515a">${esc(perfil.seguimiento)}</p>
+      <p style="margin:10px 0 0;font-size:13px;line-height:1.55;color:#42515a">${esc(detalleGestion)}</p>`);
+    const text=[
+      `Hola ${registro.nombre},`,perfil.apertura,`Folio de seguimiento: ${folio}`,`Fecha y hora: ${registro.fecha}`,`Tipo: ${registro.tipo}`,`Categoría: ${registro.categoria}`,'Estado: Pendiente de revisión',`Tu mensaje: ${registro.mensaje}`,
+      tieneArchivo?`Antecedente recibido: ${adjunto?.filename}`:'No se adjuntaron antecedentes en este ingreso.',perfil.seguimiento,detalleGestion,'ALEMSI · Casino Mamuil'
+    ].join('\n\n');
+    const envio=await enviarCorreoSmtp({to:registro.correo,subject:`ALEMSI · ${perfil.asunto} · ${folio}`,text,html});
+    if(!envio.ok) console.error('RECLAMO_SMTP_ERROR',envio.errorType);
   }
-  redirect(`/reclamos?ok=1&folio=${encodeURIComponent(`R-${String(registro.id).padStart(6,'0')}`)}`);
+
+  const destino=destinoInterno(registro.categoria);
+  if(destino){
+    const html=layout('Nuevo caso para revisión',`
+      <p style="margin:0 0 16px;font-size:14px;line-height:1.55;color:#42515a">Se registró un caso que requiere gestión interna.</p>
+      <table role="presentation" width="100%" style="border-collapse:collapse;background:#f7faf8;border:1px solid #d7e1dc">
+        <tr><td style="padding:8px;color:#5b6670;width:38%">Folio</td><td style="padding:8px;font-weight:800;color:#0B2D5B">${esc(folio)}</td></tr>
+        <tr><td style="padding:8px;color:#5b6670">Comensal</td><td style="padding:8px;font-weight:700">${esc(registro.nombre)}</td></tr>
+        <tr><td style="padding:8px;color:#5b6670">RUT</td><td style="padding:8px;font-weight:700">${esc(registro.rut)}</td></tr>
+        <tr><td style="padding:8px;color:#5b6670">Categoría</td><td style="padding:8px;font-weight:700">${esc(registro.categoria)}</td></tr>
+        <tr><td style="padding:8px;color:#5b6670">Fecha y hora</td><td style="padding:8px;font-weight:700">${esc(registro.fecha)}</td></tr>
+      </table>
+      <div style="margin-top:18px;padding:14px 16px;background:#eef7f6;border:1px solid #cfe5df;border-radius:8px;font-size:14px;line-height:1.5;color:#24434a"><b>Detalle</b><br>${esc(registro.mensaje)}</div>`);
+    const text=[`Nuevo caso ${folio}`,`Comensal: ${registro.nombre}`,`RUT: ${registro.rut}`,`Categoría: ${registro.categoria}`,`Fecha y hora: ${registro.fecha}`,`Detalle: ${registro.mensaje}`].join('\n\n');
+    const envio=await enviarCorreoSmtp({to:destino,subject:`ALEMSI · ${registro.categoria} · ${folio}`,text,html,attachments:adjunto?[adjunto]:[]});
+    if(!envio.ok) console.error('RECLAMO_DERIVACION_SMTP_ERROR',envio.errorType);
+  }
+
+  redirect(`/reclamos?ok=1&folio=${encodeURIComponent(folio)}`);
 }
