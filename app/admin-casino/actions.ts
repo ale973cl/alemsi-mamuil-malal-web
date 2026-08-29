@@ -3,6 +3,7 @@
 import { requireUser } from '@/lib/auth/session';
 import {
   enviarCoordinacion,
+  getReglas,
   guardarMinuta,
   guardarMinutas,
   publicarMinuta,
@@ -14,10 +15,31 @@ import { resolverSolicitudExtraordinaria } from '@/lib/db/solicitudes-extraordin
 import type { FilaMinutaInput } from '@/lib/reglas/minutas';
 import { revalidatePath } from 'next/cache';
 
+function numeroEntero(fd:FormData,nombre:string,porDefecto:number,min:number,max:number){
+  const raw=String(fd.get(nombre)??'').trim();
+  const valor=raw===''?porDefecto:Number(raw);
+  if(!Number.isInteger(valor)||valor<min||valor>max) throw new Error(`Valor inválido para ${nombre}.`);
+  return valor;
+}
+
 export async function reglasAction(fd: FormData) {
   const u = await requireUser(['AdminCasino', 'AdminTotal']);
-  await setReglas({a:Number(fd.get('a')||48),c:Number(fd.get('c')||24),m:Number(fd.get('m')||7),e:fd.get('e')?1:0},u.username);
+  const valores={
+    a:numeroEntero(fd,'a',48,0,720),
+    c:numeroEntero(fd,'c',24,0,720),
+    m:numeroEntero(fd,'m',7,1,31),
+    e:fd.get('e')?1:0,
+  };
+  await setReglas(valores,u.username);
+  const guardadas=await getReglas();
+  if(
+    Number(guardadas.anticipacion_reserva_horas)!==valores.a||
+    Number(guardadas.cancelacion_directa_horas)!==valores.c||
+    Number(guardadas.max_dias_consecutivos)!==valores.m||
+    Number(guardadas.excepciones_habilitadas)!==valores.e
+  ) throw new Error('La configuración no quedó guardada. No se aplicaron cambios parciales.');
   revalidatePath('/admin-casino');
+  revalidatePath('/reserva');
 }
 
 export async function minutaAction(fd: FormData) {
