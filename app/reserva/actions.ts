@@ -1,7 +1,6 @@
 'use server';
 
 import { headers } from 'next/headers';
-import { after } from 'next/server';
 import { crearComensal, listarInstitucionesActivas, obtenerComensal, obtenerPrecioPersona } from '@/lib/db/comensales';
 import { notificarReservaConfirmadaDinamica } from '@/lib/email/reserva-confirmacion';
 import { obtenerMinutasRango } from '@/lib/db/minutas';
@@ -73,6 +72,7 @@ export async function confirmarReserva(input: { rut: string; elecciones: Eleccio
     const host = h.get('x-forwarded-host') || h.get('host');
     const proto = h.get('x-forwarded-proto') || 'https';
 
+    let correo:{ok:boolean;deferred?:boolean;errorType?:string}={ok:false,errorType:'configuration'};
     if (result.correo && host) {
       const mensaje = {
         correo: result.correo,
@@ -87,21 +87,16 @@ export async function confirmarReserva(input: { rut: string; elecciones: Eleccio
         method: input.metodoPago || (result.esAlem ? 'Interno ALEMSI' : result.esCoordinador ? 'Costo asumido · Coordinadores' : 'Transferencia bancaria'),
         choices: input.elecciones,
       };
-      after(async () => {
-        console.info('RESERVA_SMTP_START');
-        try {
-          const correo = await notificarReservaConfirmadaDinamica(mensaje);
-          if (correo.ok) console.info('RESERVA_SMTP_OK');
-          else console.error('RESERVA_SMTP_ERROR', correo.errorType);
-        } catch {
-          console.error('RESERVA_SMTP_ERROR', 'protocol');
-        }
-      });
+      console.info('RESERVA_SMTP_START');
+      const envio=await notificarReservaConfirmadaDinamica(mensaje);
+      correo=envio.ok?{ok:true}:{ok:false,errorType:envio.errorType};
+      if(envio.ok) console.info('RESERVA_SMTP_OK');
+      else console.error('RESERVA_SMTP_ERROR',envio.errorType);
     } else {
       console.error('RESERVA_SMTP_ERROR', 'configuration');
     }
 
-    return { ok: true as const, result: { ...result, correo: { ok: true as const, deferred: true as const } } };
+    return { ok: true as const, result: { ...result, correo } };
   } catch (error) {
     return { ok: false as const, error: error instanceof Error ? error.message : 'No fue posible registrar la reserva.' };
   }
