@@ -29,13 +29,12 @@ export default async function Page({searchParams}:{searchParams:Promise<{inicio?
   const fin=fechaValida(params.fin)&&params.fin!>=ini?params.fin!:vigenteRango[1]>=ini?vigenteRango[1]:ini;
   // La portada conserva sus indicadores y la minuta vigente, pero cada módulo
   // consulta sus datos pesados únicamente cuando el usuario abre esa pestaña.
-  const vigentePromise=minutasPeriodo(vigenteRango[0],vigenteRango[1],hoy);
-  const periodoEsVigente=ini===vigenteRango[0]&&fin===vigenteRango[1];
+  const vigentePromise=minutasPeriodo(vigenteRango[0],vigenteRango[1]);
   const [res,vigente,reg,min,platos,solicitudes,reclamos,caso]=await Promise.all([
     resumenAdmin(),
     vigentePromise,
     tab==='reglas'?getReglas():Promise.resolve(null),
-    tab==='minuta'?(periodoEsVigente?vigentePromise:minutasPeriodo(ini,fin,hoy)):tab==='historico'?minutasPeriodo(ini,fin):Promise.resolve([]),
+    tab==='minuta'?minutasPeriodo(ini,fin,hoy):tab==='historico'?minutasPeriodo(ini,fin):Promise.resolve([]),
     tab==='minuta'?platosDisponibles():Promise.resolve([]),
     tab==='solicitudes'?listarSolicitudesExtraordinarias('PENDIENTE'):Promise.resolve([]),
     tab==='reclamos'?listarReclamosParaRol('AdminCasino',Number(params.pagina||1),25):Promise.resolve([]),
@@ -52,7 +51,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{inicio?
   return <AppShell user={u}><div className="space-y-5">
     <section className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-extrabold tracking-[.18em] text-[#1DB954]">ADMIN CASINO</p><h1 className="text-2xl font-black text-[#0E2A23]">Operación y minutas</h1><p className="mt-1 text-sm text-[#6B7570]">Minuta oficial, excepciones y reglas operativas desde una sola fuente.</p></div><RelojChile epochServidor={Date.now()}/></section>
 
-    <section className="rounded-2xl border border-[#A6B0AA]/25 bg-white p-5"><div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-extrabold tracking-[.14em] text-[#1DB954]">MINUTA OFICIAL VIGENTE</p><h2 className="text-xl font-black">Ciclo viernes → jueves</h2><p className="text-sm text-[#6B7570]">{fechaVisible(vigenteRango[0])} → {fechaVisible(vigenteRango[1])} · fuente única para Cocina, Comensal y perfiles autorizados.</p></div><Link href={href('minuta')} className="rounded-xl bg-[#0E2A23] px-4 py-2 text-sm font-black text-white">Gestionar próxima minuta</Link></div><MinutaPublicada rows={vigente as any} compactWeekly/></section>
+    <section className="rounded-2xl border border-[#A6B0AA]/25 bg-white p-5"><div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-extrabold tracking-[.14em] text-[#1DB954]">MINUTA OFICIAL VIGENTE</p><h2 className="text-xl font-black">Ciclo viernes → jueves</h2><p className="text-sm text-[#6B7570]">{fechaVisible(vigenteRango[0])} → {fechaVisible(vigenteRango[1])} · fuente única para Cocina, Comensal y perfiles autorizados.</p></div><Link href={href('minuta')} className="rounded-xl bg-[#0E2A23] px-4 py-2 text-sm font-black text-white">Gestionar próxima minuta</Link></div><MinutaPublicada rows={vigente as any} compactWeekly inicio={vigenteRango[0]} fin={vigenteRango[1]}/></section>
 
     <section className="grid gap-3 md:grid-cols-4">{[['Reservas futuras',res.reservas],['Raciones futuras',res.raciones],['Pagos pendientes',res.pendientes],['Excepciones pendientes',res.solicitudes]].map(([a,b])=><div key={String(a)} className="rounded-2xl border border-[#A6B0AA]/25 bg-white p-4"><div className="text-sm text-[#6B7570]">{a}</div><div className="text-3xl font-black text-[#0E2A23]">{String(b||0)}</div></div>)}</section>
 
