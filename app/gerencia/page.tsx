@@ -5,19 +5,14 @@ import { dashboardGerencia } from '@/lib/db/gerencia';
 import { listarFinanzas } from '@/lib/db/finanzas';
 import { obtenerMinutasRango } from '@/lib/db/minutas';
 import { fechaHoraVisibleChile } from '@/lib/fecha-hora';
+import { calcularKpisFinancieros } from '@/lib/reglas/finanzas';
 
 export const dynamic='force-dynamic';
 
 function fechaChile(date:Date){return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Santiago',year:'numeric',month:'2-digit',day:'2-digit'}).format(date)}
 function cicloViernesJueves(){const hoy=fechaChile(new Date());const [y,m,d]=hoy.split('-').map(Number);const base=new Date(Date.UTC(y,m-1,d,12));const retro=(base.getUTCDay()-5+7)%7;const ini=new Date(base);ini.setUTCDate(base.getUTCDate()-retro);const fin=new Date(ini);fin.setUTCDate(ini.getUTCDate()+6);return [ini.toISOString().slice(0,10),fin.toISOString().slice(0,10)] as const;}
 function mesActualChile(){const hoy=fechaChile(new Date());const [y,m]=hoy.split('-');const last=new Date(Date.UTC(Number(y),Number(m),0)).getUTCDate();return{desde:`${y}-${m}-01`,hasta:`${y}-${m}-${String(last).padStart(2,'0')}`}}
-function servicios(row:any){return Array.isArray(row.servicios)?row.servicios:[]}
-function fechaEnRango(fecha:string,desde:string,hasta:string){return Boolean(fecha&&fecha>=desde&&fecha<=hasta)}
-function montoRango(row:any,desde:string,hasta:string){return servicios(row).reduce((sum:number,s:any)=>sum+(fechaEnRango(String(s.fecha||''),desde,hasta)?Number(s.monto||0):0),0)}
-function montoAnterior(row:any,desde:string){return servicios(row).reduce((sum:number,s:any)=>sum+(String(s.fecha||'')<desde?Number(s.monto||0):0),0)}
-function esPagado(row:any){return ['PAGADO','APROBADO'].includes(String(row.estado_pago||'').trim().toUpperCase())||String(row.comprobante_estado||'').toUpperCase()==='VALIDADO'}
-function esCobrable(row:any){const estado=String(row.estado_pago||'Pendiente').trim().toUpperCase();return !['NO APLICA','COSTO ASUMIDO','COSTO ASUMIDO / NO COBRABLE'].includes(estado)&&Number(row.total||0)>0}
-function comprobantePorValidar(row:any){const estado=String(row.comprobante_estado||'').trim().toUpperCase();return Boolean(row.comprobante_id)&&!['VALIDADO','RECHAZADO'].includes(estado)}
+
 
 export default async function Page({searchParams}:{searchParams:Promise<{inicio?:string;fin?:string}>}){
   const u=await requireUser(['Gerencia','AdminTotal']);
@@ -28,12 +23,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{inicio?
   const periodo=mesActualChile();
   const [d,minuta,finanzas]=await Promise.all([dashboardGerencia(),obtenerMinutasRango(inicio,fin),listarFinanzas()]);
 
-  const reservadoPeriodo=finanzas.reduce((sum:number,row:any)=>sum+montoRango(row,periodo.desde,periodo.hasta),0);
-  const pagadoPeriodo=finanzas.filter(esPagado).reduce((sum:number,row:any)=>sum+montoRango(row,periodo.desde,periodo.hasta),0);
-  const pendientePeriodo=finanzas.filter((r:any)=>esCobrable(r)&&!esPagado(r)).reduce((sum:number,row:any)=>sum+montoRango(row,periodo.desde,periodo.hasta),0);
-  const porValidarPeriodo=finanzas.filter(comprobantePorValidar).reduce((sum:number,row:any)=>sum+montoRango(row,periodo.desde,periodo.hasta),0);
-  const deudaAnterior=finanzas.filter((r:any)=>esCobrable(r)&&!esPagado(r)).reduce((sum:number,row:any)=>sum+montoAnterior(row,periodo.desde),0);
-  const saldoTotal=pendientePeriodo+deudaAnterior;
+  const {reservadoPeriodo,pagadoPeriodo,pendientePeriodo,porValidarPeriodo,deudaAnterior,saldoTotal}=calcularKpisFinancieros(finanzas,periodo);
 
   return <AppShell user={u}><div className="space-y-5">
     <section><p className="text-xs font-extrabold tracking-[.18em] text-[#1DB954]">GERENCIA · SOLO CONSULTA</p><h1 className="text-2xl font-black">Resumen ejecutivo</h1><p className="mt-1 text-sm text-[#6B7570]">Misma lectura financiera de Finanzas y misma minuta operativa estándar del sistema.</p></section>

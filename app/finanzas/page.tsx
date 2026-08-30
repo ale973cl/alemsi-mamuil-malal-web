@@ -3,7 +3,7 @@ import Script from 'next/script';
 import AppShell from '@/components/AppShell';
 import { requireUser } from '@/lib/auth/session';
 import { listarFinanzas } from '@/lib/db/finanzas';
-import { estadoBandeja } from '@/lib/reglas/finanzas';
+import { calcularKpisFinancieros,coincideEstadoFinanciero,coincidePeriodoFinanciero,normalizarPeriodoFinanciero,pagadoValidado,pendienteConComprobante,pendienteSinComprobante,rechazado,sinComprobante,serviciosFinancieros } from '@/lib/reglas/finanzas';
 import { pagoAction, solicitarInformacionPagoAction, validarSinComprobanteAction } from './actions';
 
 const estados=[
@@ -19,34 +19,12 @@ export const dynamic='force-dynamic';
 
 function hoyChile(){return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Santiago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}
 function mesActualChile(){const hoy=hoyChile();const [y,m]=hoy.split('-');const last=new Date(Date.UTC(Number(y),Number(m),0)).getUTCDate();return{desde:`${y}-${m}-01`,hasta:`${y}-${m}-${String(last).padStart(2,'0')}`}}
-function esPagado(row:any){return ['PAGADO','APROBADO'].includes(String(row.estado_pago||'').trim().toUpperCase())||String(row.comprobante_estado||'').toUpperCase()==='VALIDADO'}
-function esCobrable(row:any){const estado=String(row.estado_pago||'Pendiente').trim().toUpperCase();return !['NO APLICA','COSTO ASUMIDO','COSTO ASUMIDO / NO COBRABLE'].includes(estado)&&Number(row.total||0)>0}
-function servicios(row:any){return Array.isArray(row.servicios)?row.servicios:[]}
-function fechaEnRango(fecha:string,desde:string,hasta:string){return Boolean(fecha&&fecha>=desde&&fecha<=hasta)}
-function montoRango(row:any,desde:string,hasta:string){return servicios(row).reduce((sum:number,s:any)=>sum+(fechaEnRango(String(s.fecha||''),desde,hasta)?Number(s.monto||0):0),0)}
-function montoAnterior(row:any,desde:string){return servicios(row).reduce((sum:number,s:any)=>sum+(String(s.fecha||'')<desde?Number(s.monto||0):0),0)}
-function coincideRango(row:any,desde?:string,hasta?:string){if(!desde||!hasta)return true;return servicios(row).some((s:any)=>fechaEnRango(String(s.fecha||''),desde,hasta))}
-function tieneComprobante(row:any){return Boolean(row.comprobante_id)}
-function estadoComprobante(row:any){return String(row.comprobante_estado||'').trim().toUpperCase()}
-function sinComprobante(row:any){return !tieneComprobante(row)}
-function comprobantePorValidar(row:any){const estado=estadoComprobante(row);return tieneComprobante(row)&&!['VALIDADO','RECHAZADO'].includes(estado)}
-function sinComprobantePendiente(row:any){return esCobrable(row)&&!esPagado(row)&&sinComprobante(row)}
-function comprobantePendienteValidacion(row:any){return esCobrable(row)&&!esPagado(row)&&comprobantePorValidar(row)}
-function coincideEstado(row:any,estado:string){
-  if(estado==='global')return true;
-  if(estado==='pendientes')return sinComprobantePendiente(row)||comprobantePendienteValidacion(row);
-  if(estado==='sin-comprobante')return sinComprobantePendiente(row);
-  if(estado==='por-validar')return comprobantePendienteValidacion(row);
-  if(estado==='rechazados')return estadoBandeja(row)==='rechazados';
-  if(estado==='validados')return esPagado(row);
-  return true;
-}
 function estadoVisible(row:any){
-  if(sinComprobante(row)&&esPagado(row))return 'Pagado · sin comprobante';
-  if(sinComprobante(row))return 'Sin comprobante';
-  if(comprobantePorValidar(row))return 'Comprobante por validar';
-  if(estadoBandeja(row)==='rechazados')return 'Rechazado';
-  return esPagado(row)?'Validado':'Pendiente';
+  if(sinComprobante(row)&&pagadoValidado(row))return 'Pagado · sin comprobante';
+  if(pendienteSinComprobante(row))return 'Sin comprobante';
+  if(pendienteConComprobante(row))return 'Comprobante por validar';
+  if(rechazado(row))return 'Rechazado';
+  return pagadoValidado(row)?'Validado':'Pendiente';
 }
 
 export default async function Page({searchParams}:{searchParams:Promise<{estado?:string;institucion?:string;medio?:string;q?:string;desde?:string;hasta?:string}>}){
@@ -61,30 +39,25 @@ export default async function Page({searchParams}:{searchParams:Promise<{estado?
   const q=String(params.q||'').trim().toLocaleLowerCase('es-CL');
   const instituciones=[...new Set(rows.map((r:any)=>String(r.institucion||'').trim()).filter(Boolean))].sort();
   const medios=[...new Set(rows.map((r:any)=>String(r.metodo_pago||'').trim()).filter(Boolean))].sort();
+  const periodo=normalizarPeriodoFinanciero(desde,hasta,mesActualChile());
 
   const universo=rows.filter((row:any)=>{
     if(institucion&&String(row.institucion||'')!==institucion)return false;
     if(medio&&String(row.metodo_pago||'')!==medio)return false;
     if(q){const bolsa=[row.rut,row.nombre,row.codigo_reserva,row.institucion,row.metodo_pago].map(v=>String(v||'').toLocaleLowerCase('es-CL')).join(' ');if(!bolsa.includes(q))return false;}
-    if(!coincideRango(row,desde,hasta))return false;
+    if(!coincidePeriodoFinanciero(row,periodo))return false;
     return true;
   });
-  const visibles=universo.filter((row:any)=>coincideEstado(row,estado));
-  const comprobantesPorValidar=universo.filter(comprobantePendienteValidacion).length;
+  const visibles=universo.filter((row:any)=>coincideEstadoFinanciero(row,estado));
+  const comprobantesPorValidar=universo.filter(pendienteConComprobante).length;
 
-  const periodo=desde&&hasta?{desde,hasta}:mesActualChile();
   const baseKpi=rows.filter((row:any)=>{
     if(institucion&&String(row.institucion||'')!==institucion)return false;
     if(medio&&String(row.metodo_pago||'')!==medio)return false;
     if(q){const bolsa=[row.rut,row.nombre,row.codigo_reserva,row.institucion,row.metodo_pago].map(v=>String(v||'').toLocaleLowerCase('es-CL')).join(' ');if(!bolsa.includes(q))return false;}
     return true;
   });
-  const reservadoPeriodo=baseKpi.reduce((sum:number,row:any)=>sum+montoRango(row,periodo.desde,periodo.hasta),0);
-  const pagadoPeriodo=baseKpi.filter(esPagado).reduce((sum:number,row:any)=>sum+montoRango(row,periodo.desde,periodo.hasta),0);
-  const pendientePeriodo=baseKpi.filter((r:any)=>esCobrable(r)&&!esPagado(r)).reduce((sum:number,row:any)=>sum+montoRango(row,periodo.desde,periodo.hasta),0);
-  const porValidarPeriodo=baseKpi.filter(comprobantePorValidar).reduce((sum:number,row:any)=>sum+montoRango(row,periodo.desde,periodo.hasta),0);
-  const deudaAnterior=baseKpi.filter((r:any)=>esCobrable(r)&&!esPagado(r)).reduce((sum:number,row:any)=>sum+montoAnterior(row,periodo.desde),0);
-  const saldoTotal=pendientePeriodo+deudaAnterior;
+  const {reservadoPeriodo,pagadoPeriodo,pendientePeriodo,porValidarPeriodo,deudaAnterior,saldoTotal}=calcularKpisFinancieros(baseKpi,periodo);
 
   const qsBase=new URLSearchParams();
   if(desde)qsBase.set('desde',desde);if(hasta)qsBase.set('hasta',hasta);if(institucion)qsBase.set('institucion',institucion);if(medio)qsBase.set('medio',medio);if(params.q)qsBase.set('q',String(params.q));
@@ -96,7 +69,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{estado?
     <section>
       <p className="text-xs font-extrabold tracking-[.18em] text-[#1DB954]">FINANZAS</p>
       <h1 className="text-2xl font-black text-[#0E2A23]">Bandeja financiera</h1>
-      <p className="mt-1 text-sm text-[#6B7570]">Histórico completo y una sola lectura financiera. Los indicadores muestran {desde&&hasta?'el período seleccionado':'el mes actual'} y separan la deuda arrastrada de períodos anteriores.</p>
+      <p className="mt-1 text-sm text-[#6B7570]">Histórico completo y una sola lectura financiera. Los indicadores muestran {desde||hasta?'el período seleccionado':'el mes actual'} y separan la deuda arrastrada de períodos anteriores.</p>
     </section>
 
     <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -141,7 +114,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{estado?
 
       <div className="mt-5 space-y-3">{visibles.map((r:any)=>{
         const accionable=String(r.comprobante_estado||'').toUpperCase()==='RECIBIDO';
-        const pagado=esPagado(r);
+        const pagado=pagadoValidado(r);
         return <details key={r.codigo_reserva} className="rounded-xl border border-[#A6B0AA]/30 p-4">
           <summary className="cursor-pointer list-none">
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5 lg:items-center">
@@ -157,11 +130,11 @@ export default async function Page({searchParams}:{searchParams:Promise<{estado?
               <div><dt className="font-bold">RUT</dt><dd>{r.rut}</dd></div><div><dt className="font-bold">Código de reserva</dt><dd className="break-all">{r.codigo_reserva}</dd></div><div><dt className="font-bold">Método de pago</dt><dd>{r.metodo_pago||'—'}</dd></div><div><dt className="font-bold">Estado financiero</dt><dd>{r.estado_pago||'Pendiente'}</dd></div><div><dt className="font-bold">Estado comprobante</dt><dd>{r.comprobante_estado||'Sin comprobante'}</dd></div><div><dt className="font-bold">Motivo reciente</dt><dd>{r.comprobante_motivo||r.motivo_estado_pago||'—'}</dd></div>
             </dl>
             <h3 className="mt-4 font-black">Servicios reservados</h3>
-            <div className="mt-2 overflow-x-auto"><table className="min-w-[620px] w-full"><thead><tr className="text-left"><th>Fecha</th><th>Servicio</th><th>Plato / opción</th><th>Monto</th></tr></thead><tbody>{servicios(r).map((s:any)=><tr key={s.id} className="border-t"><td className="py-2">{s.fecha}</td><td>{s.servicio}</td><td>{s.plato} · {s.opcion||'—'}</td><td>${Number(s.monto||0).toLocaleString('es-CL')}</td></tr>)}</tbody></table></div>
+            <div className="mt-2 overflow-x-auto"><table className="min-w-[620px] w-full"><thead><tr className="text-left"><th>Fecha</th><th>Servicio</th><th>Plato / opción</th><th>Monto</th></tr></thead><tbody>{serviciosFinancieros(r).map((s:any)=><tr key={s.id} className="border-t"><td className="py-2">{s.fecha}</td><td>{s.servicio}</td><td>{s.plato} · {s.opcion||'—'}</td><td>${Number(s.monto||0).toLocaleString('es-CL')}</td></tr>)}</tbody></table></div>
             {r.comprobante_id&&<a className="mt-4 inline-block rounded-lg border px-4 py-2 font-bold underline" target="_blank" rel="noreferrer" href={`/api/finanzas/comprobante/${r.comprobante_id}`}>Ver comprobante</a>}
             {(r.comprobantes_historial||[]).length>0&&<div className="mt-4"><h3 className="font-black">Historial de comprobantes</h3><ul className="mt-2 space-y-1">{r.comprobantes_historial.map((h:any)=><li key={h.id}>{h.fecha} · <a className="underline" target="_blank" rel="noreferrer" href={`/api/finanzas/comprobante/${h.id}`}>{h.archivo}</a> · <b>{h.estado}</b>{h.motivo?` · ${h.motivo}`:''}</li>)}</ul></div>}
             {accionable&&<div className="mt-3 grid gap-2 lg:grid-cols-2"><form action={pagoAction}><input type="hidden" name="codigo" value={r.codigo_reserva}/><input type="hidden" name="estado" value="Pagado"/><button className="w-full rounded-lg bg-[#1DB954] px-4 py-2 font-bold">Validar comprobante</button></form><form action={pagoAction} className="grid gap-2"><input type="hidden" name="codigo" value={r.codigo_reserva}/><input type="hidden" name="estado" value="Rechazado"/><input name="motivo" required placeholder="Motivo obligatorio del rechazo" className="rounded-lg border px-3 py-2"/><button className="rounded-lg border border-[#9B2C2C] px-4 py-2 font-bold">Rechazar</button></form></div>}
-            {!pagado&&!r.comprobante_id&&esCobrable(r)&&<div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto]">
+            {!pagado&&!r.comprobante_id&&pendienteSinComprobante(r)&&<div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto]">
               <details className="rounded-xl border border-[#D4AF37]/50 bg-[#D4AF37]/5 p-3"><summary className="cursor-pointer font-black">Validar sin comprobante · marcha blanca</summary><form action={validarSinComprobanteAction} className="mt-3 grid gap-2 lg:grid-cols-[220px_1fr_auto]"><input type="hidden" name="codigo" value={r.codigo_reserva}/><select name="medio" required defaultValue="" className="rounded-lg border bg-white px-3 py-2"><option value="" disabled>Medio de verificación</option><option>Cartola bancaria</option><option>Transferencia identificada</option><option>POS / débito</option><option>Validación administrativa</option><option>Otro medio verificable</option></select><input name="motivo" required placeholder="Detalle obligatorio de la verificación" className="rounded-lg border px-3 py-2"/><button className="rounded-lg bg-[#0E2A23] px-4 py-2 font-black text-white">Marcar pagado y liberar RUT</button></form></details>
               <form action={solicitarInformacionPagoAction} className="self-start"><input type="hidden" name="codigo" value={r.codigo_reserva}/><button className="w-full rounded-xl border border-[#0D9B91] bg-[#EEF7F6] px-4 py-3 font-black text-[#0E2A23] lg:w-auto">Solicitar información de pago</button></form>
             </div>}
