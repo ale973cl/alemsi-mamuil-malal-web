@@ -22,8 +22,8 @@ export async function resumenAdmin(){
     (SELECT COUNT(*) FROM solicitudes_extraordinarias WHERE estado='PENDIENTE') solicitudes`);
   return rows[0]||{};
 }
-export async function minutasPeriodo(inicio:string,fin:string){
-  return query<any>(`SELECT id,fecha,servicio,tipo_opcion,plato,COALESCE(estado,'PUBLICABLE') estado FROM minutas WHERE activo=1 AND fecha BETWEEN $1 AND $2 ORDER BY fecha,CASE servicio WHEN 'Desayuno' THEN 1 WHEN 'Almuerzo' THEN 2 WHEN 'Once' THEN 3 WHEN 'Cena' THEN 4 ELSE 5 END,tipo_opcion,id`,[inicio,fin]);
+export async function minutasPeriodo(inicio:string,fin:string,soloOperativasDesde?:string){
+  return query<any>(`SELECT m.id,m.fecha,m.servicio,m.tipo_opcion,m.plato,COALESCE(m.estado,'PUBLICABLE') estado FROM minutas m WHERE m.activo=1 AND m.fecha BETWEEN $1 AND $2 ${soloOperativasDesde?`AND m.fecha >= $3 AND NOT EXISTS (SELECT 1 FROM jornadas_produccion j WHERE j.fecha=m.fecha AND j.estado='Finalizado')`:''} ORDER BY m.fecha,CASE m.servicio WHEN 'Desayuno' THEN 1 WHEN 'Almuerzo' THEN 2 WHEN 'Once' THEN 3 WHEN 'Cena' THEN 4 ELSE 5 END,m.tipo_opcion,m.id`,soloOperativasDesde?[inicio,fin,soloOperativasDesde]:[inicio,fin]);
 }
 export async function platosDisponibles(){
   return query<{plato:string;tiene_receta:boolean}>(`WITH nombres AS (SELECT plato FROM minutas WHERE COALESCE(activo,1)=1 UNION SELECT plato FROM recetas WHERE UPPER(TRIM(COALESCE(estado,''))) IN ('ACTIVA','ACTIVO','APROBADA','APROBADO')) SELECT nombres.plato,EXISTS(SELECT 1 FROM recetas r WHERE LOWER(TRIM(r.plato))=LOWER(TRIM(nombres.plato)) AND UPPER(TRIM(COALESCE(r.estado,''))) IN ('ACTIVA','ACTIVO','APROBADA','APROBADO')) tiene_receta FROM nombres WHERE COALESCE(TRIM(nombres.plato),'')<>'' ORDER BY nombres.plato`);

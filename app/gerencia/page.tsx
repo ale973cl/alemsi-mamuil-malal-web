@@ -4,6 +4,7 @@ import { requireUser } from '@/lib/auth/session';
 import { dashboardGerencia } from '@/lib/db/gerencia';
 import { listarFinanzas } from '@/lib/db/finanzas';
 import { obtenerMinutasRango } from '@/lib/db/minutas';
+import { fechaHoraVisibleChile } from '@/lib/fecha-hora';
 
 export const dynamic='force-dynamic';
 
@@ -47,6 +48,6 @@ export default async function Page({searchParams}:{searchParams:Promise<{inicio?
     <section className="grid gap-5 lg:grid-cols-3"><div className="rounded-2xl border bg-white p-5"><h2 className="text-xl font-black">Finanzas</h2><div className="mt-3 space-y-2"><div className="rounded-xl bg-[#F6F3EA] p-3"><b>Pagado período</b><div>${Number(pagadoPeriodo).toLocaleString('es-CL')}</div></div><div className="rounded-xl bg-[#F6F3EA] p-3"><b>Saldo por recaudar</b><div>${Number(saldoTotal).toLocaleString('es-CL')}</div></div></div></div><div className="rounded-2xl border bg-white p-5"><h2 className="text-xl font-black">Producción</h2><div className="mt-3 space-y-2">{d.jornadas.map((r:any)=><div key={r.estado} className="rounded-xl bg-[#F6F3EA] p-3"><b>{r.estado}</b><div>{r.cantidad} jornadas</div></div>)}</div></div><div className="rounded-2xl border bg-white p-5"><h2 className="text-xl font-black">Bodega</h2><div className="mt-3 rounded-xl bg-[#F6F3EA] p-3"><b>Lotes con stock</b><div>{d.bodega.con_stock||0}</div></div></div></section>
 
     <section className="rounded-2xl border bg-white p-5"><h2 className="text-xl font-black">Reporte consolidado de raciones</h2><div className="mt-3 grid gap-2 md:grid-cols-3">{d.produccion.map((r:any,i:number)=><div key={i} className="rounded-xl bg-[#F6F3EA] p-3"><b>{r.fecha} · {r.servicio}</b><div>{r.cantidad} raciones</div></div>)}</div></section>
-    <section className="rounded-2xl border bg-white p-5"><h2 className="text-xl font-black">Última auditoría</h2><div className="mt-3 space-y-2 text-sm">{d.auditoria.map((r:any,i:number)=><div key={i} className="border-b pb-2"><b>{r.accion}</b> · {r.usuario} · {r.fecha}</div>)}</div></section>
+    <details className="rounded-2xl border bg-white p-5"><summary className="cursor-pointer text-xl font-black">Auditoría / Registro de actividad</summary><div className="mt-3 space-y-2 text-sm">{d.auditoria.map((r:any,i:number)=><div key={i} className="border-b pb-2"><b>{r.accion}</b> · {r.usuario} · {fechaHoraVisibleChile(new Date(r.fecha))}</div>)}</div></details>
   </div></AppShell>;
 }
