@@ -199,6 +199,7 @@ export async function cerrarJornada(fecha: string, usuario: string, novedades: s
     }
   }
   await inTransaction(async (client) => {
+    const instanteCierre = new Date().toISOString();
     await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`CIERRE|${fecha}`]);
     for (const item of items) {
       await client.query(
@@ -207,8 +208,10 @@ export async function cerrarJornada(fecha: string, usuario: string, novedades: s
       );
     }
     await client.query(
-      `UPDATE jornadas_produccion SET estado='Finalizado',fin_at=$1,usuario_fin=$2,novedades=$3 WHERE fecha=$4`,
-      [new Date().toISOString(), usuario, novedades, fecha],
+      `UPDATE jornadas_produccion
+          SET estado='Finalizado',fin_at=$1,usuario_fin=$2,novedades=$3,reporte_enviado_at=$1
+        WHERE fecha=$4`,
+      [instanteCierre, usuario, novedades, fecha],
     );
     await registrarAuditoriaTx(client,{usuario,accion:'FINALIZAR_JORNADA'});
   });

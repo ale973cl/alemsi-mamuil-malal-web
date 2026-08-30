@@ -5,7 +5,7 @@ import { cerrarAction } from '@/app/cocina/actions';
 type Row={id:number;servicio:string;tipo_opcion:string;plato:string;reservadas:number;producidas:number|null;entregadas:number|null;motivo_diferencia?:string};
 type Value={id:number;reservadas:number;producidas:string;entregadas:string;motivo:string};
 
-export default function CierreJornada({fecha,rows}:{fecha:string;rows:Row[]}){
+export default function CierreJornada({fecha,rows,buttonLabel='Finalizar jornada'}:{fecha:string;rows:Row[];buttonLabel?:string}){
   const [values,setValues]=useState<Value[]>(()=>rows.map(r=>({
     id:r.id,
     reservadas:Number(r.reservadas),
@@ -41,6 +41,6 @@ export default function CierreJornada({fecha,rows}:{fecha:string;rows:Row[]}){
     {faltanMotivos&&<div className="rounded-xl border border-[#D4AF37] bg-[#D4AF37]/10 p-3 text-sm font-bold">Hay diferencias sin motivo obligatorio.</div>}
     <textarea name="novedades" placeholder="Novedades generales de la jornada" className="min-h-24 w-full rounded-xl border p-3"/>
     <label className="flex items-center gap-2 rounded-xl bg-[#F6F3EA] p-3 text-sm font-bold"><input type="checkbox" name="confirmacion" required/> Confirmo que revisé producción, entregas, diferencias y novedades</label>
-    <button disabled={faltanDatos||faltanMotivos} className="rounded-xl bg-[#1DB954] px-5 py-3 font-black disabled:opacity-40">Finalizar jornada</button>
+    <button disabled={faltanDatos||faltanMotivos} className="rounded-xl bg-[#1DB954] px-5 py-3 font-black disabled:opacity-40">{buttonLabel}</button>
   </form>
 }
