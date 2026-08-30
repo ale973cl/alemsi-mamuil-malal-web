@@ -30,11 +30,13 @@ function tieneComprobante(row:any){return Boolean(row.comprobante_id)}
 function estadoComprobante(row:any){return String(row.comprobante_estado||'').trim().toUpperCase()}
 function sinComprobante(row:any){return !tieneComprobante(row)}
 function comprobantePorValidar(row:any){const estado=estadoComprobante(row);return tieneComprobante(row)&&!['VALIDADO','RECHAZADO'].includes(estado)}
+function sinComprobantePendiente(row:any){return esCobrable(row)&&!esPagado(row)&&sinComprobante(row)}
+function comprobantePendienteValidacion(row:any){return esCobrable(row)&&!esPagado(row)&&comprobantePorValidar(row)}
 function coincideEstado(row:any,estado:string){
   if(estado==='global')return true;
-  if(estado==='pendientes')return esCobrable(row)&&!esPagado(row);
-  if(estado==='sin-comprobante')return sinComprobante(row);
-  if(estado==='por-validar')return comprobantePorValidar(row);
+  if(estado==='pendientes')return sinComprobantePendiente(row)||comprobantePendienteValidacion(row);
+  if(estado==='sin-comprobante')return sinComprobantePendiente(row);
+  if(estado==='por-validar')return comprobantePendienteValidacion(row);
   if(estado==='rechazados')return estadoBandeja(row)==='rechazados';
   if(estado==='validados')return esPagado(row);
   return true;
@@ -68,6 +70,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{estado?
     return true;
   });
   const visibles=universo.filter((row:any)=>coincideEstado(row,estado));
+  const comprobantesPorValidar=universo.filter(comprobantePendienteValidacion).length;
 
   const periodo=desde&&hasta?{desde,hasta}:mesActualChile();
   const baseKpi=rows.filter((row:any)=>{
@@ -118,7 +121,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{estado?
       </form>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        {estados.map(([key,label])=>{const p=new URLSearchParams(qsBase);p.set('estado',key);return <Link key={key} href={`/finanzas?${p.toString()}`} className={`rounded-full border px-3 py-1.5 text-sm font-bold ${estado===key?'bg-[#0E2A23] text-white':'bg-white text-[#0E2A23]'}`}>{label}</Link>})}
+        {estados.map(([key,label])=>{const p=new URLSearchParams(qsBase);p.set('estado',key);return <Link key={key} href={`/finanzas?${p.toString()}`} className={`rounded-full border px-3 py-1.5 text-sm font-bold ${estado===key?'bg-[#0E2A23] text-white':'bg-white text-[#0E2A23]'}`}>{key==='por-validar'?`${label} (${comprobantesPorValidar})`:label}</Link>})}
         <span className="mx-1 hidden h-6 w-px bg-[#A6B0AA]/40 sm:inline-block"/>
         <Link href={`/finanzas?${hoyQs.toString()}`} className="rounded-full border px-3 py-1.5 text-sm font-bold">Ver hoy</Link>
         <Link href="/finanzas" className="rounded-full border px-3 py-1.5 text-sm font-bold">Limpiar filtros</Link>
