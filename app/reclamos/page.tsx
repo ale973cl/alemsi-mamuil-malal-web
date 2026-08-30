@@ -14,7 +14,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{ok?:str
         <select name="tipo" className="w-full rounded-lg border p-3"><option>Reclamo</option><option>Sugerencia</option><option>Felicitación</option></select>
         <select name="categoria" className="w-full rounded-lg border p-3"><option>Comida</option><option>Atención</option><option>Higiene</option><option>Infraestructura</option><option>Pago / deuda</option><option>Otro</option></select>
         <textarea name="mensaje" required className="min-h-32 w-full rounded-lg border p-3" placeholder="Mensaje"/>
-        <label className="block rounded-lg border bg-[#F6F3EA] p-3 text-sm font-bold">Adjuntar antecedentes (opcional)<input type="file" name="archivo" accept="application/pdf,image/jpeg,image/png,image/webp" className="mt-2 block w-full font-normal"/><span className="mt-1 block text-xs font-normal text-[#6B7570]">PDF o imagen, máximo 10 MB. El archivo quedará asociado al mismo folio.</span></label>
+        <label className="block min-w-0 overflow-hidden rounded-lg border bg-[#F6F3EA] p-3 text-sm font-bold">Adjuntar antecedentes (opcional)<input type="file" name="archivo" accept="application/pdf,image/jpeg,image/png,image/webp" className="mt-2 block w-full min-w-0 max-w-full text-xs font-normal sm:text-sm"/><span className="mt-1 block text-xs font-normal text-[#6B7570]">PDF o imagen, máximo 5 MB. El archivo quedará asociado al mismo folio.</span></label>
         <button className="w-full rounded-xl bg-[#1DB954] p-3 font-black">Enviar</button>
       </form>
     </div>

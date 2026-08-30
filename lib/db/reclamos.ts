@@ -3,21 +3,30 @@ import { inTransaction, query } from '@/lib/db/pool';
 
 export type RolReclamo='AdminCasino'|'AdminTotal'|'Coordinacion'|'Gerencia'|'Finanzas';
 
-export async function listarReclamosParaRol(rol:RolReclamo){
+export async function listarReclamosParaRol(rol:RolReclamo,pagina=1,tamano=25){
+  const limite=Math.min(50,Math.max(1,Math.trunc(tamano)||25));
+  const offset=(Math.max(1,Math.trunc(pagina)||1)-1)*limite;
   const filtro=rol==='AdminCasino'||rol==='AdminTotal'
     ? ''
     : `AND (COALESCE(r.area_actual,'AdminCasino')=$1 OR EXISTS (SELECT 1 FROM reclamo_movimientos m WHERE m.reclamo_id=r.id AND m.destino_rol=$1))`;
   return query<any>(
     `SELECT r.id,r.rut,r.nombre,r.tipo,r.categoria,r.mensaje,r.fecha,r.estado,
-            COALESCE(r.area_actual,'AdminCasino') area_actual,r.actualizado_por,r.fecha_actualizacion,
-            COALESCE((SELECT JSON_AGG(JSON_BUILD_OBJECT('id',m.id,'actor',m.actor,'actor_rol',m.actor_rol,'accion',m.accion,'destino_rol',m.destino_rol,'mensaje',m.mensaje,'estado',m.estado_resultante,'fecha',m.fecha) ORDER BY m.id) FROM reclamo_movimientos m WHERE m.reclamo_id=r.id),'[]'::json) movimientos,
-            COALESCE((SELECT JSON_AGG(JSON_BUILD_OBJECT('id',a.id,'movimiento_id',a.movimiento_id,'nombre',a.nombre_archivo,'mime',a.mime_type,'cargado_por',a.cargado_por,'cargado_rol',a.cargado_rol,'fecha',a.fecha_carga) ORDER BY a.id) FROM reclamo_adjuntos a WHERE a.reclamo_id=r.id),'[]'::json) adjuntos
+            COALESCE(r.area_actual,'AdminCasino') area_actual,r.actualizado_por,r.fecha_actualizacion
        FROM reclamos_sugerencias r
       WHERE 1=1 ${filtro}
       ORDER BY CASE WHEN r.estado='Cerrado' THEN 1 ELSE 0 END,r.id DESC
-      LIMIT 100`,
-    rol==='AdminCasino'||rol==='AdminTotal'?[]:[rol],
+      LIMIT $${rol==='AdminCasino'||rol==='AdminTotal'?1:2} OFFSET $${rol==='AdminCasino'||rol==='AdminTotal'?2:3}`,
+    rol==='AdminCasino'||rol==='AdminTotal'?[limite,offset]:[rol,limite,offset],
   );
+}
+
+export async function obtenerDetalleReclamo(id:number){
+  const rows=await query<any>(`SELECT r.id,r.rut,r.nombre,r.tipo,r.categoria,r.mensaje,r.fecha,r.estado,
+    COALESCE(r.area_actual,'AdminCasino') area_actual,r.actualizado_por,r.fecha_actualizacion,
+    COALESCE((SELECT JSON_AGG(JSON_BUILD_OBJECT('id',m.id,'actor',m.actor,'actor_rol',m.actor_rol,'accion',m.accion,'destino_rol',m.destino_rol,'mensaje',m.mensaje,'estado',m.estado_resultante,'fecha',m.fecha) ORDER BY m.id) FROM reclamo_movimientos m WHERE m.reclamo_id=r.id),'[]'::json) movimientos,
+    COALESCE((SELECT JSON_AGG(JSON_BUILD_OBJECT('id',a.id,'movimiento_id',a.movimiento_id,'nombre',a.nombre_archivo,'mime',a.mime_type,'cargado_por',a.cargado_por,'cargado_rol',a.cargado_rol,'fecha',a.fecha_carga) ORDER BY a.id) FROM reclamo_adjuntos a WHERE a.reclamo_id=r.id),'[]'::json) adjuntos
+    FROM reclamos_sugerencias r WHERE r.id=$1 LIMIT 1`,[id]);
+  return rows[0]||null;
 }
 
 export async function agregarMovimientoReclamo(input:{reclamoId:number;actor:string;actorRol:RolReclamo;accion:string;destinoRol?:RolReclamo|null;mensaje?:string;estado?:string;archivo?:{nombre:string;mime:string;bytes:Uint8Array}|null}){

@@ -5,6 +5,8 @@ import { obtenerComensal, obtenerPrecioPersona } from '@/lib/db/comensales';
 import { validarPlatoPublicado } from '@/lib/db/minutas';
 import {
   REGLAS_RESERVA_DEFAULT,
+  anticipacionParaInstitucion,
+  fechaDentroVentanaMaxima,
   distribuirPrecioDia,
   limpiarRut,
   maxConsecutivosFechas,
@@ -19,7 +21,8 @@ import {
 export async function obtenerReglasReserva(): Promise<ReglasReserva> {
   try {
     const rows = await query<Partial<ReglasReserva>>(
-      `SELECT anticipacion_reserva_horas,cancelacion_directa_horas,max_dias_consecutivos,excepciones_habilitadas
+      `SELECT anticipacion_reserva_horas,cancelacion_directa_horas,max_dias_consecutivos,excepciones_habilitadas,
+              modalidad_cierre,anticipacion_oficina_horas,anticipacion_otros_horas,ventana_maxima_dias
          FROM configuracion_reservas
         WHERE id=1
         LIMIT 1`,
@@ -118,6 +121,7 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
   const esAlem = tipo === 'paso' || tipo === 'administrativos';
   const esCoordinador = tipo === 'coordinadores';
   const reglas = await obtenerReglasReserva();
+  const anticipacion=anticipacionParaInstitucion(reglas,institucion);
   const fechas = [...new Set(input.elecciones.map((item) => item.fecha))].sort();
 
   if (!fechas.length) throw new Error('No hay fechas seleccionadas.');
@@ -161,8 +165,9 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
   }
 
   for (const item of input.elecciones) {
+    if(!fechaDentroVentanaMaxima(item.fecha,Number(reglas.ventana_maxima_dias))) throw new Error(`${item.fecha} está fuera de la ventana máxima de reserva.`);
     const exception = Number(reglas.excepciones_habilitadas) === 1 && (await excepcionReservaActiva(rut, item.fecha));
-    if (!esAlem && !exception && !reservaComercialHabilitada(item.fecha, item.servicio, Number(reglas.anticipacion_reserva_horas))) {
+    if (tipo!=='paso'&&!esCoordinador&&!exception && !reservaComercialHabilitada(item.fecha,item.servicio,anticipacion,new Date(),'America/Santiago',reglas.modalidad_cierre)) {
       throw new Error(`${item.servicio} del ${item.fecha} está fuera del plazo de reserva.`);
     }
     if (!(await validarPlatoPublicado(item))) {

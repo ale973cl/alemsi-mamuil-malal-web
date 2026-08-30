@@ -9,18 +9,18 @@ export async function getReglas(){
 }
 export async function setReglas(v:any,u:string){
   await inTransaction(async c=>{
-    await c.query(`CREATE TABLE IF NOT EXISTS configuracion_reservas (id INTEGER PRIMARY KEY DEFAULT 1,anticipacion_reserva_horas INTEGER DEFAULT 48,cancelacion_directa_horas INTEGER DEFAULT 24,max_dias_consecutivos INTEGER DEFAULT 7,excepciones_habilitadas INTEGER DEFAULT 1)`);
-    await c.query(`INSERT INTO configuracion_reservas (id,anticipacion_reserva_horas,cancelacion_directa_horas,max_dias_consecutivos,excepciones_habilitadas) VALUES (1,$1,$2,$3,$4) ON CONFLICT (id) DO UPDATE SET anticipacion_reserva_horas=EXCLUDED.anticipacion_reserva_horas,cancelacion_directa_horas=EXCLUDED.cancelacion_directa_horas,max_dias_consecutivos=EXCLUDED.max_dias_consecutivos,excepciones_habilitadas=EXCLUDED.excepciones_habilitadas`,[v.a,v.c,v.m,v.e]);
+    await c.query(`INSERT INTO configuracion_reservas (id,anticipacion_reserva_horas,cancelacion_directa_horas,max_dias_consecutivos,excepciones_habilitadas,modalidad_cierre,anticipacion_oficina_horas,anticipacion_otros_horas,ventana_maxima_dias) VALUES (1,$1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (id) DO UPDATE SET anticipacion_reserva_horas=EXCLUDED.anticipacion_reserva_horas,cancelacion_directa_horas=EXCLUDED.cancelacion_directa_horas,max_dias_consecutivos=EXCLUDED.max_dias_consecutivos,excepciones_habilitadas=EXCLUDED.excepciones_habilitadas,modalidad_cierre=EXCLUDED.modalidad_cierre,anticipacion_oficina_horas=EXCLUDED.anticipacion_oficina_horas,anticipacion_otros_horas=EXCLUDED.anticipacion_otros_horas,ventana_maxima_dias=EXCLUDED.ventana_maxima_dias`,[v.a,v.c,v.m,v.e,v.modalidad,v.oficina,v.otros,v.ventana]);
     await registrarAuditoriaTx(c,{usuario:u,accion:'ACTUALIZAR_REGLAS_RESERVA'});
   });
 }
 export async function resumenAdmin(){
-  const [r,p,m]=await Promise.all([
-    query<any>(`SELECT COUNT(DISTINCT referencia_reserva) reservas,COUNT(*) raciones FROM solicitudes WHERE COALESCE(estado_reserva,'ACTIVA')='ACTIVA' AND fecha>=CURRENT_DATE::text`),
-    query<any>(`SELECT COUNT(*) pendientes FROM solicitudes WHERE LOWER(COALESCE(estado_pago,'pendiente')) NOT IN ('pagado','no aplica','costo asumido','costo asumido / no cobrable') AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA'`),
-    query<any>(`SELECT COUNT(*) minutas FROM minutas WHERE activo=1 AND COALESCE(estado,'PUBLICABLE')='PUBLICABLE' AND fecha>=CURRENT_DATE::text`)
-  ]);
-  return {...r[0],...p[0],...m[0]};
+  const rows=await query<any>(`SELECT
+    (SELECT COUNT(DISTINCT referencia_reserva) FROM solicitudes WHERE COALESCE(estado_reserva,'ACTIVA')='ACTIVA' AND fecha>=CURRENT_DATE::text) reservas,
+    (SELECT COUNT(*) FROM solicitudes WHERE COALESCE(estado_reserva,'ACTIVA')='ACTIVA' AND fecha>=CURRENT_DATE::text) raciones,
+    (SELECT COUNT(*) FROM solicitudes WHERE LOWER(COALESCE(estado_pago,'pendiente')) NOT IN ('pagado','no aplica','costo asumido','costo asumido / no cobrable') AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA') pendientes,
+    (SELECT COUNT(*) FROM minutas WHERE activo=1 AND COALESCE(estado,'PUBLICABLE')='PUBLICABLE' AND fecha>=CURRENT_DATE::text) minutas,
+    (SELECT COUNT(*) FROM solicitudes_extraordinarias WHERE estado='PENDIENTE') solicitudes`);
+  return rows[0]||{};
 }
 export async function minutasPeriodo(inicio:string,fin:string){
   return query<any>(`SELECT id,fecha,servicio,tipo_opcion,plato,COALESCE(estado,'PUBLICABLE') estado FROM minutas WHERE activo=1 AND fecha BETWEEN $1 AND $2 ORDER BY fecha,CASE servicio WHEN 'Desayuno' THEN 1 WHEN 'Almuerzo' THEN 2 WHEN 'Once' THEN 3 WHEN 'Cena' THEN 4 ELSE 5 END,tipo_opcion,id`,[inicio,fin]);
@@ -122,7 +122,6 @@ export async function registrarAutorizacionExterna(inicio:string,fin:string,u:st
 }
 export async function enviarCoordinacion(inicio:string,fin:string,u:string){
   return inTransaction(async c=>{
-    await c.query(`CREATE TABLE IF NOT EXISTS minuta_flujo_coordinacion (id SERIAL PRIMARY KEY,fecha_desde TEXT NOT NULL,fecha_hasta TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 1,estado TEXT NOT NULL DEFAULT 'EN_REVISION',observacion TEXT,enviado_por TEXT,enviado_at TEXT,coordinador TEXT,coordinacion_at TEXT,activo INTEGER DEFAULT 1)`);
     const conflictos=await c.query(`SELECT fecha,servicio,UPPER(TRIM(tipo_opcion)) opcion,COUNT(*) cantidad FROM minutas WHERE COALESCE(activo,1)=1 AND fecha BETWEEN $1 AND $2 GROUP BY fecha,servicio,UPPER(TRIM(tipo_opcion)) HAVING COUNT(*)>1 LIMIT 1`,[inicio,fin]);
     if(conflictos.rows[0]) throw new Error('La minuta contiene combinaciones duplicadas. Corrígelas antes de enviarla.');
     const repetido=await c.query(`SELECT a.fecha,a.servicio FROM minutas a JOIN minutas b ON b.fecha=a.fecha AND b.servicio=a.servicio AND UPPER(TRIM(b.tipo_opcion))='OPCION 2' AND LOWER(TRIM(b.plato))=LOWER(TRIM(a.plato)) AND b.id<>a.id WHERE COALESCE(a.activo,1)=1 AND COALESCE(b.activo,1)=1 AND UPPER(TRIM(a.tipo_opcion))='OPCION 1' AND a.fecha BETWEEN $1 AND $2 LIMIT 1`,[inicio,fin]);

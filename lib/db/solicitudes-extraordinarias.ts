@@ -6,30 +6,6 @@ import { normalizarRutDb, validarRutM11 } from '@/lib/reglas/reserva';
 export type TipoSolicitudExtraordinaria = 'ANULACION_SERVICIO' | 'NO_CONSUMIRA_DIA';
 export type EstadoSolicitudExtraordinaria = 'PENDIENTE' | 'AUTORIZADA' | 'RECHAZADA';
 
-async function asegurarTabla() {
-  await query(`
-    CREATE TABLE IF NOT EXISTS solicitudes_extraordinarias (
-      id BIGSERIAL PRIMARY KEY,
-      rut TEXT NOT NULL,
-      referencia_reserva TEXT,
-      solicitud_id BIGINT,
-      fecha DATE NOT NULL,
-      servicio TEXT,
-      plato TEXT,
-      tipo TEXT NOT NULL,
-      motivo TEXT NOT NULL,
-      estado TEXT NOT NULL DEFAULT 'PENDIENTE',
-      creada_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      resuelta_at TIMESTAMPTZ,
-      resuelta_por TEXT,
-      observacion_resolucion TEXT,
-      cantidad_afectada INTEGER NOT NULL DEFAULT 0
-    )
-  `);
-  await query(`CREATE INDEX IF NOT EXISTS idx_solicitudes_extraordinarias_estado ON solicitudes_extraordinarias(estado,fecha)`);
-  await query(`CREATE INDEX IF NOT EXISTS idx_solicitudes_extraordinarias_rut ON solicitudes_extraordinarias(rut,fecha)`);
-}
-
 export async function crearSolicitudExtraordinaria(input:{
   rut:string;
   tipo:TipoSolicitudExtraordinaria;
@@ -41,8 +17,6 @@ export async function crearSolicitudExtraordinaria(input:{
   const rut=normalizarRutDb(input.rut);
   const motivo=String(input.motivo||'').trim();
   if (motivo.length < 5) throw new Error('Indica el motivo de la solicitud extraordinaria.');
-  await asegurarTabla();
-
   if (input.tipo==='ANULACION_SERVICIO') {
     const rows=await query<any>(`SELECT id,rut,referencia_reserva,fecha,servicio,COALESCE(plato_reservado,plato) plato,COALESCE(estado_reserva,'ACTIVA') estado_reserva FROM solicitudes WHERE id=$1 AND rut=$2 LIMIT 1`,[Number(input.solicitudId||0),rut]);
     const row=rows[0];
@@ -64,7 +38,6 @@ export async function crearSolicitudExtraordinaria(input:{
 }
 
 export async function listarSolicitudesExtraordinarias(estado:EstadoSolicitudExtraordinaria|'TODAS'='PENDIENTE') {
-  await asegurarTabla();
   const where=estado==='TODAS'?'':'WHERE se.estado=$1';
   const params=estado==='TODAS'?[]:[estado];
   return query<any>(`
@@ -76,6 +49,7 @@ export async function listarSolicitudesExtraordinarias(estado:EstadoSolicitudExt
       LEFT JOIN comensales c ON c.rut=se.rut
       ${where}
       ORDER BY CASE se.estado WHEN 'PENDIENTE' THEN 1 ELSE 2 END,se.fecha,se.creada_at
+      LIMIT 100
   `,params);
 }
 
@@ -107,7 +81,6 @@ async function descontarProduccion(client:any,row:any,solicitudExtraId:number,us
 }
 
 export async function resolverSolicitudExtraordinaria(input:{id:number;decision:'AUTORIZAR'|'RECHAZAR';usuario:string;observacion?:string}){
-  await asegurarTabla();
   return inTransaction(async client=>{
     const sr=await client.query(`SELECT * FROM solicitudes_extraordinarias WHERE id=$1 FOR UPDATE`,[input.id]);
     const sol=sr.rows[0];

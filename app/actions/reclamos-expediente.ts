@@ -16,7 +16,7 @@ const DESTINOS:Record<RolReclamo,RolReclamo[]>={
 async function archivoDesdeForm(fd:FormData){
   const file=fd.get('archivo');
   if(!(file instanceof File)||file.size===0) return null;
-  if(file.size>10*1024*1024) throw new Error('El archivo supera 10 MB.');
+  if(file.size>5*1024*1024) throw new Error('El archivo supera 5 MB.');
   const permitidos=['application/pdf','image/jpeg','image/png','image/webp'];
   if(!permitidos.includes(file.type)) throw new Error('Adjunta PDF, JPG, PNG o WEBP.');
   return {nombre:file.name||'antecedente',mime:file.type,bytes:new Uint8Array(await file.arrayBuffer())};

@@ -14,6 +14,8 @@ import {
   tipoInstitucion,
   validarRutM11,
   type EleccionReserva,
+  anticipacionParaInstitucion,
+  fechaDentroVentanaMaxima,
 } from '@/lib/reglas/reserva';
 
 export async function identificarComensal(rutInput: string) {
@@ -56,9 +58,10 @@ export async function cargarMinutaDisponible(rutInput: string, inicio: string, f
   const rows = await obtenerMinutasRango(inicio, fin);
   const tipo = tipoInstitucion(perfil.persona.institucion);
   const filtradas = rows.filter((row) => {
+    if(!fechaDentroVentanaMaxima(row.fecha,Number(reglas.ventana_maxima_dias))) return false;
     if (tipo === 'administrativos' && row.servicio !== 'Almuerzo') return false;
     if (tipo === 'paso') { const tipoOpcion = String(row.tipo_opcion ?? '').trim().toUpperCase(); if (!['OPCION 1', 'HIPOCALORICO'].includes(tipoOpcion)) return false; }
-    if (tipo === 'comercial' && !reservaComercialHabilitada(row.fecha, row.servicio, Number(reglas.anticipacion_reserva_horas))) return false;
+    if ((tipo === 'comercial'||tipo==='administrativos') && !reservaComercialHabilitada(row.fecha,row.servicio,anticipacionParaInstitucion(reglas,perfil.persona.institucion),new Date(),'America/Santiago',reglas.modalidad_cierre)) return false;
     return true;
   });
   return { ok: true as const, rows: filtradas, reglas };

@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { db, query } from "@/lib/db";
-import { consolidarDeudaPasada, ESTADO_MINUTA_PUBLICADA } from "@/lib/reglas/reserva";
+import { consolidarDeudaPasada, ESTADO_MINUTA_PUBLICADA, reservaComercialHabilitada } from "@/lib/reglas/reserva";
+import { epochHoraChile, fechaHoraVisibleChile } from '@/lib/fecha-hora';
 
 export const SERVICE_HOURS: Record<string, number> = { Desayuno: 8, Almuerzo: 13, Once: 17, Cena: 20 };
 
@@ -16,10 +17,10 @@ export function validRut(value:string){
   const x=11-(sum%11); const expected=x===11?"0":x===10?"K":String(x); return expected===dv;
 }
 export function serviceDate(fecha:string, servicio:string){
-  const hour=SERVICE_HOURS[servicio] ?? 12; return new Date(`${fecha}T${String(hour).padStart(2,"0")}:00:00-04:00`);
+  const hour=SERVICE_HOURS[servicio] ?? 12; return new Date(epochHoraChile(fecha,hour));
 }
 export function reservationDayCutoff(fecha:string,hours:number){
-  const dayStart=new Date(`${fecha}T00:00:00-04:00`).getTime();
+  const dayStart=epochHoraChile(fecha,0);
   const fullDays=Math.max(1,Math.ceil(Number(hours||0)/24));
   return dayStart-(fullDays-1)*24*3600_000;
 }
@@ -42,8 +43,8 @@ export async function blockingDebt(rut:string){
   const lineas=await query<any>(`SELECT referencia_reserva,fecha,servicio,COALESCE(precio_aplicado,precio,0) AS monto_pendiente,COALESCE(NULLIF(TRIM(estado_pago),''),'Pendiente') AS estado FROM solicitudes WHERE rut=$1 AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA' AND COALESCE(precio_aplicado,precio,0)>0 AND COALESCE(tipo_registro,'RESERVA_COMERCIAL')='RESERVA_COMERCIAL' AND LOWER(TRIM(COALESCE(estado_pago,'Pendiente'))) NOT IN ('pagado','no aplica','costo asumido','costo asumido / no cobrable') ORDER BY fecha,referencia_reserva,servicio,id`,[dbRut(rut)]);
   return consolidarDeudaPasada(lineas);
 }
-export function genReference(rut:string){ const d=new Date(); const p=(n:number)=>String(n).padStart(2,"0"); const stamp=`${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}${p(d.getHours())}${p(d.getMinutes())}`; const rc=cleanRut(rut).slice(-5,-1)||"0000"; return `MM-${stamp}-${rc}-${crypto.randomInt(1000,10000)}`; }
-export async function genPublicCode(){ const d=new Date(); const p=(n:number)=>String(n).padStart(2,"0"); const prefix=`R-${p(d.getDate())}${p(d.getMonth()+1)}-${p(d.getHours())}${p(d.getMinutes())}-`; const rows=await query<any>(`SELECT codigo_reserva FROM solicitudes WHERE codigo_reserva LIKE $1 ORDER BY id DESC LIMIT 100`,[`${prefix}%`]).catch(()=>[]); const used=new Set(rows.map(r=>String(r.codigo_reserva))); for(let n=1;n<1000;n++){const c=`${prefix}${String(n).padStart(3,"0")}`;if(!used.has(c))return c;} return `${prefix}${String(Math.floor(Date.now()/1000)%1000).padStart(3,"0")}`; }
+export function genReference(rut:string){ const stamp=fechaHoraVisibleChile().replace(/[- ·:]/g,'').slice(0,12); const rc=cleanRut(rut).slice(-5,-1)||"0000"; return `MM-${stamp}-${rc}-${crypto.randomInt(1000,10000)}`; }
+export async function genPublicCode(){ const stamp=fechaHoraVisibleChile().replace(/[- ·:]/g,''); const prefix=`R-${stamp.slice(0,4)}-${stamp.slice(8,12)}-`; const rows=await query<any>(`SELECT codigo_reserva FROM solicitudes WHERE codigo_reserva LIKE $1 ORDER BY id DESC LIMIT 100`,[`${prefix}%`]).catch(()=>[]); const used=new Set(rows.map(r=>String(r.codigo_reserva))); for(let n=1;n<1000;n++){const c=`${prefix}${String(n).padStart(3,"0")}`;if(!used.has(c))return c;} return `${prefix}${String(Math.floor(Date.now()/1000)%1000).padStart(3,"0")}`; }
 export function genVoucher(rut:string,serv:string,fecha:string){ return `${cleanRut(rut).slice(-4)}-${serv.slice(0,3).toUpperCase()}-${fecha.replaceAll("-","")}-${crypto.randomInt(100,1000)}`; }
 
 export type ReservationChoice={fecha:string;servicio:string;plato:string;tipo_opcion?:string};
@@ -53,7 +54,7 @@ export async function saveReservation(input:{rut:string;choices:ReservationChoic
   const r=await rules(); const dates=[...new Set(input.choices.map(x=>x.fecha))].sort(); if(!dates.length) throw new Error("No hay fechas seleccionadas.");
   if(!isAlem && !coordinator){ const debts=await blockingDebt(rut); if(debts.length) throw new Error("Existen pagos pendientes o rechazados que bloquean una nueva reserva."); }
   if(!isAlem && maxConsecutive(dates)>Number(r.max_dias_consecutivos)) throw new Error(`Máximo permitido: ${r.max_dias_consecutivos} días consecutivos.`);
-  for(const c of input.choices){ if(!isWithinCutoff(c.fecha,c.servicio,Number(r.anticipacion_reserva_horas))) throw new Error(`${c.servicio} del ${c.fecha} está fuera del plazo de reserva.`); }
+  for(const c of input.choices){ if(!reservaComercialHabilitada(c.fecha,c.servicio,Number(r.anticipacion_reserva_horas))) throw new Error(`${c.servicio} del ${c.fecha} está fuera del plazo de reserva.`); }
   // Confirm every selected plate still belongs to an explicitly published menu row.
   for(const c of input.choices){ const ok=await query<any>(`SELECT id FROM minutas WHERE activo=1 AND estado=$4 AND fecha=$1 AND servicio=$2 AND plato=$3 LIMIT 1`,[c.fecha,c.servicio,c.plato,ESTADO_MINUTA_PUBLICADA]); if(!ok[0]) throw new Error(`El plato ${c.plato} ya no está disponible para ${c.fecha} · ${c.servicio}.`); }
   const price=await personPrice(rut,institution); let ref=genReference(rut); const publicCode=await genPublicCode(); const client=await db().connect(); const now=new Date().toISOString(); const method=coordinator?"Costo asumido · Coordinadores":isAlem?"Interno ALEMSI":String(input.method||"Transferencia bancaria");

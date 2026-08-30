@@ -16,7 +16,7 @@ import { revalidatePath } from 'next/cache';
 
 export async function reglasAction(fd: FormData) {
   const u = await requireUser(['AdminCasino', 'AdminTotal']);
-  await setReglas({a:Number(fd.get('a')||48),c:Number(fd.get('c')||24),m:Number(fd.get('m')||7),e:fd.get('e')?1:0},u.username);
+  await setReglas({a:Number(fd.get('otros')||48),c:Number(fd.get('c')||24),m:Number(fd.get('m')||7),e:fd.get('e')?1:0,modalidad:fd.get('modalidad')==='HORAS_EXACTAS'?'HORAS_EXACTAS':'DIA_COMPLETO',oficina:Number(fd.get('oficina')||48),otros:Number(fd.get('otros')||48),ventana:Number(fd.get('ventana')||31)},u.username);
   revalidatePath('/admin-casino');
 }
 

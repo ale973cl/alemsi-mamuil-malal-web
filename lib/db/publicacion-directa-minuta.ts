@@ -7,8 +7,6 @@ export async function publicarMinutaDirecta(inicio:string,fin:string,usuario:str
   if(!/^\d{4}-\d{2}-\d{2}$/.test(inicio)||!/^\d{4}-\d{2}-\d{2}$/.test(fin)||fin<inicio) throw new Error('Período inválido.');
 
   return inTransaction(async c=>{
-    await c.query(`CREATE TABLE IF NOT EXISTS minuta_flujo_coordinacion (id SERIAL PRIMARY KEY,fecha_desde TEXT NOT NULL,fecha_hasta TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 1,estado TEXT NOT NULL DEFAULT 'EN_REVISION',observacion TEXT,enviado_por TEXT,enviado_at TEXT,coordinador TEXT,coordinacion_at TEXT,activo INTEGER DEFAULT 1)`);
-
     const conflicto=await c.query(`SELECT fecha,servicio,UPPER(TRIM(tipo_opcion)) opcion,COUNT(*) cantidad FROM minutas WHERE COALESCE(activo,1)=1 AND fecha BETWEEN $1 AND $2 GROUP BY fecha,servicio,UPPER(TRIM(tipo_opcion)) HAVING COUNT(*)>1 LIMIT 1`,[inicio,fin]);
     if(conflicto.rows[0]) throw new Error(`Existen registros duplicados reales en ${conflicto.rows[0].fecha} · ${conflicto.rows[0].servicio} · ${conflicto.rows[0].opcion}. Corrige ese duplicado antes de publicar.`);
 

@@ -1,3 +1,5 @@
+import { epochHoraChile, fechaIsoChile, ZONA_CHILE } from '../fecha-hora.ts';
+
 export const HORAS_SERVICIO: Record<string, number> = {
   Desayuno: 8,
   Almuerzo: 13,
@@ -10,6 +12,10 @@ export type ReglasReserva = {
   cancelacion_directa_horas: number;
   max_dias_consecutivos: number;
   excepciones_habilitadas: number;
+  modalidad_cierre?: 'DIA_COMPLETO'|'HORAS_EXACTAS';
+  anticipacion_oficina_horas?: number;
+  anticipacion_otros_horas?: number;
+  ventana_maxima_dias?: number;
 };
 
 export const REGLAS_RESERVA_DEFAULT: ReglasReserva = {
@@ -17,6 +23,10 @@ export const REGLAS_RESERVA_DEFAULT: ReglasReserva = {
   cancelacion_directa_horas: 24,
   max_dias_consecutivos: 7,
   excepciones_habilitadas: 1,
+  modalidad_cierre:'DIA_COMPLETO',
+  anticipacion_oficina_horas:48,
+  anticipacion_otros_horas:48,
+  ventana_maxima_dias:31,
 };
 
 export const ESTADO_MINUTA_PUBLICADA = 'PUBLICADA' as const;
@@ -69,40 +79,10 @@ export function tipoInstitucion(institucion: string): 'paso' | 'administrativos'
   return 'comercial';
 }
 
-function zonedEpoch(
-  year: number,
-  month: number,
-  day: number,
-  hour: number,
-  minute = 0,
-  timeZone = 'America/Santiago',
-): number {
-  // Convierte una hora de pared de Chile a epoch UTC sin depender de la zona horaria
-  // del runtime de Vercel. Dos iteraciones resuelven también cambios DST.
-  let guess = Date.UTC(year, month - 1, day, hour, minute, 0);
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-    hourCycle: 'h23',
-  });
-  for (let i = 0; i < 2; i += 1) {
-    const parts = Object.fromEntries(
-      formatter.formatToParts(new Date(guess))
-        .filter((part) => part.type !== 'literal')
-        .map((part) => [part.type, Number(part.value)]),
-    ) as Record<string, number>;
-    const renderedAsUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
-    const targetAsUtc = Date.UTC(year, month - 1, day, hour, minute, 0);
-    guess += targetAsUtc - renderedAsUtc;
-  }
-  return guess;
-}
-
 function fechaHoraServicioEpoch(fechaIso: string, servicio: string, timeZone = 'America/Santiago'): number {
   const hora = HORAS_SERVICIO[servicio] ?? 12;
-  const [year, month, day] = fechaIso.split('-').map(Number);
-  return zonedEpoch(year, month, day, hora, 0, timeZone);
+  if(timeZone!==ZONA_CHILE) throw new Error(`Zona operacional no soportada: ${timeZone}`);
+  return epochHoraChile(fechaIso,hora);
 }
 
 export function servicioYaOcurrio(
@@ -142,12 +122,26 @@ export function reservaComercialHabilitada(
   anticipacionHoras: number,
   ahora = new Date(),
   timeZone = 'America/Santiago',
+  modalidad:'DIA_COMPLETO'|'HORAS_EXACTAS'='DIA_COMPLETO',
 ): boolean {
-  const [year, month, day] = fechaIso.split('-').map(Number);
-  const inicioDia = zonedEpoch(year, month, day, 0, 0, timeZone);
+  if(timeZone!==ZONA_CHILE) throw new Error(`Zona operacional no soportada: ${timeZone}`);
+  if(modalidad==='HORAS_EXACTAS') return ahora.getTime()<fechaHoraServicioEpoch(fechaIso,_servicio,timeZone)-Math.max(0,Number(anticipacionHoras||0))*3_600_000;
+  const inicioDia = epochHoraChile(fechaIso,0);
   const diasCompletos = Math.max(1, Math.ceil(Number(anticipacionHoras || 0) / 24));
   const cierre = inicioDia - (diasCompletos - 1) * 86_400_000;
   return ahora.getTime() < cierre;
+}
+
+export function anticipacionParaInstitucion(reglas:ReglasReserva,institucion:string):number{
+  const oficina=tipoInstitucion(institucion)==='administrativos';
+  return Number(oficina?reglas.anticipacion_oficina_horas:reglas.anticipacion_otros_horas) || Number(reglas.anticipacion_reserva_horas);
+}
+
+export function fechaDentroVentanaMaxima(fechaIso:string,maxDias:number,ahora=new Date()):boolean{
+  const hoy=fechaIsoChile(ahora);
+  const epoch=(iso:string)=>{const [y,m,d]=iso.split('-').map(Number);return Date.UTC(y,m-1,d,12)};
+  const dias=(epoch(fechaIso)-epoch(hoy))/86_400_000;
+  return dias>=0&&dias<=Math.max(1,Math.trunc(Number(maxDias)||31));
 }
 
 export function cancelacionDirectaHabilitada(

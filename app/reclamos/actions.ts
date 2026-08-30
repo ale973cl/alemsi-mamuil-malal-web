@@ -4,6 +4,7 @@ import { agregarAdjuntoInicial } from '@/lib/db/reclamos';
 import { getComensalSession } from '@/lib/auth/comensal-session';
 import { enviarCorreoSmtp } from '@/lib/email/smtp';
 import { redirect } from 'next/navigation';
+import { fechaHoraVisibleChile } from '@/lib/fecha-hora';
 
 function esc(v:unknown){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c));}
 function layout(title:string,content:string){
@@ -40,7 +41,7 @@ export async function reclamoAction(fd:FormData){
   const registro=await guardarReclamo(rut,String(fd.get('tipo')||''),String(fd.get('categoria')||''),String(fd.get('mensaje')||''));
   const file=fd.get('archivo');
   if(file instanceof File&&file.size>0){
-    if(file.size>10*1024*1024) throw new Error('El archivo supera 10 MB.');
+    if(file.size>5*1024*1024) throw new Error('El archivo supera 5 MB.');
     const permitidos=['application/pdf','image/jpeg','image/png','image/webp'];
     if(!permitidos.includes(file.type)) throw new Error('Adjunta PDF, JPG, PNG o WEBP.');
     await agregarAdjuntoInicial({reclamoId:registro.id,actor:registro.nombre||registro.rut,nombre:file.name||'antecedente',mime:file.type,bytes:new Uint8Array(await file.arrayBuffer())});
@@ -58,7 +59,7 @@ export async function reclamoAction(fd:FormData){
         <p style="margin:0 0 18px;font-size:14px;line-height:1.55;color:#42515a">${esc(perfil.apertura)}</p>
         <table role="presentation" width="100%" style="border-collapse:collapse;background:#f7faf8;border:1px solid #d7e1dc">
           <tr><td style="padding:8px;color:#5b6670;width:38%">Folio de seguimiento</td><td style="padding:8px;font-weight:800;color:#0B2D5B">${esc(folio)}</td></tr>
-          <tr><td style="padding:8px;color:#5b6670">Fecha y hora</td><td style="padding:8px;font-weight:700">${esc(registro.fecha)}</td></tr>
+          <tr><td style="padding:8px;color:#5b6670">Fecha y hora</td><td style="padding:8px;font-weight:700">${esc(fechaHoraVisibleChile(new Date(registro.fecha)))}</td></tr>
           <tr><td style="padding:8px;color:#5b6670">Tipo</td><td style="padding:8px;font-weight:700">${esc(registro.tipo)}</td></tr>
           <tr><td style="padding:8px;color:#5b6670">Categoría</td><td style="padding:8px;font-weight:700">${esc(registro.categoria)}</td></tr>
           <tr><td style="padding:8px;color:#5b6670">Estado</td><td style="padding:8px;font-weight:800;color:#087A46">Pendiente de revisión</td></tr>
@@ -68,7 +69,7 @@ export async function reclamoAction(fd:FormData){
         <p style="margin:18px 0 0;font-size:13px;line-height:1.55;color:#42515a">${esc(perfil.seguimiento)}</p>
         <p style="margin:10px 0 0;font-size:13px;line-height:1.55;color:#42515a">${esc(detalleGestion)}</p>`);
       const text=[
-        `Hola ${registro.nombre},`,perfil.apertura,`Folio de seguimiento: ${folio}`,`Fecha y hora: ${registro.fecha}`,`Tipo: ${registro.tipo}`,`Categoría: ${registro.categoria}`,'Estado: Pendiente de revisión',`Tu mensaje: ${registro.mensaje}`,
+        `Hola ${registro.nombre},`,perfil.apertura,`Folio de seguimiento: ${folio}`,`Fecha y hora: ${fechaHoraVisibleChile(new Date(registro.fecha))}`,`Tipo: ${registro.tipo}`,`Categoría: ${registro.categoria}`,'Estado: Pendiente de revisión',`Tu mensaje: ${registro.mensaje}`,
         tieneArchivo?`Antecedente recibido: ${file.name}`:'No se adjuntaron antecedentes en este ingreso.',perfil.seguimiento,detalleGestion,'ALEMSI · Casino Mamuil'
       ].join('\n\n');
       await enviarCorreoSmtp({to:registro.correo,subject:`ALEMSI · ${perfil.asunto} · ${folio}`,text,html});
