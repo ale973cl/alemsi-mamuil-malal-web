@@ -11,6 +11,7 @@ import {
 } from '@/lib/db/admin';
 import { publicarMinutaDirecta } from '@/lib/db/publicacion-directa-minuta';
 import { resolverSolicitudExtraordinaria } from '@/lib/db/solicitudes-extraordinarias';
+import { AREAS_RECLAMOS, CATEGORIAS_RECLAMOS, guardarPermisosReclamos, guardarResponsableReclamo } from '@/lib/db/reclamos';
 import type { FilaMinutaInput } from '@/lib/reglas/minutas';
 import { revalidatePath } from 'next/cache';
 
@@ -85,4 +86,22 @@ export async function resolverSolicitudExtraordinariaAction(fd:FormData){
   revalidatePath('/admin-casino');
   revalidatePath('/mis-reservas');
   revalidatePath('/cocina');
+}
+
+export async function guardarResponsableReclamoAction(fd:FormData){
+  const u=await requireUser(['AdminCasino','AdminTotal']);
+  await guardarResponsableReclamo({areaKey:String(fd.get('area_key')||''),responsable:String(fd.get('responsable')||''),correo:String(fd.get('correo')||''),activo:fd.get('activo')==='on'},u.username);
+  revalidatePath('/admin-casino');
+}
+
+export async function guardarMatrizReclamosAction(fd:FormData){
+  const u=await requireUser(['AdminCasino','AdminTotal']);
+  const permisos=CATEGORIAS_RECLAMOS.flatMap(categoria=>AREAS_RECLAMOS.map(area=>({
+    categoriaKey:categoria.key,
+    areaKey:area.key,
+    puedeVer:fd.get(`ver__${categoria.key}__${area.key}`)==='on',
+    puedeSolucionar:fd.get(`solucionar__${categoria.key}__${area.key}`)==='on',
+  })));
+  await guardarPermisosReclamos(permisos,u.username);
+  revalidatePath('/admin-casino');
 }

@@ -1,7 +1,57 @@
 import 'server-only';
 import { inTransaction, query } from '@/lib/db/pool';
+import { registrarAuditoriaTx } from '@/lib/db/auditoria';
 
 export type RolReclamo='AdminCasino'|'AdminTotal'|'Coordinacion'|'Gerencia'|'Finanzas';
+export const AREAS_RECLAMOS=[
+  {key:'ADMIN_CASINO',nombre:'Administración Casino',rol:'AdminCasino'},
+  {key:'CASINO',nombre:'Casino',rol:'Casino'},
+  {key:'COORDINACION',nombre:'Coordinación',rol:'Coordinacion'},
+  {key:'FINANZAS',nombre:'Finanzas',rol:'Finanzas'},
+  {key:'GERENCIA',nombre:'Gerencia',rol:'Gerencia'},
+  {key:'COCINA',nombre:'Cocina',rol:'Cocina'},
+] as const;
+export const CATEGORIAS_RECLAMOS=[
+  {key:'COMIDA_SERVICIO',nombre:'Comida / Servicio'},
+  {key:'PREPARACION_ALIMENTACION',nombre:'Preparación / Alimentación'},
+  {key:'PAGO_DEUDA',nombre:'Pago / Deuda'},
+  {key:'OTROS_SUGERENCIAS',nombre:'Otros / Sugerencias'},
+] as const;
+
+export async function obtenerConfiguracionReclamos(){
+  const [responsables,permisos]=await Promise.all([
+    query<any>(`SELECT area_key,area_nombre,rol,responsable,correo,activo,actualizado_at,actualizado_por FROM reclamo_areas_responsables ORDER BY orden,area_nombre`),
+    query<any>(`SELECT categoria_key,area_key,puede_ver,puede_solucionar FROM reclamo_permisos ORDER BY categoria_key,area_key`),
+  ]);
+  return {responsables,permisos};
+}
+
+export async function guardarResponsableReclamo(input:{areaKey:string;responsable:string;correo:string;activo:boolean},usuario:string){
+  const area=AREAS_RECLAMOS.find(item=>item.key===input.areaKey);
+  if(!area) throw new Error('Área de reclamos inválida.');
+  const correo=input.correo.trim().toLowerCase();
+  if(correo&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) throw new Error('Correo inválido.');
+  await inTransaction(async c=>{
+    await c.query(`INSERT INTO reclamo_areas_responsables (area_key,area_nombre,rol,responsable,correo,activo,orden,actualizado_at,actualizado_por)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),$8)
+      ON CONFLICT (area_key) DO UPDATE SET area_nombre=EXCLUDED.area_nombre,rol=EXCLUDED.rol,responsable=EXCLUDED.responsable,correo=EXCLUDED.correo,activo=EXCLUDED.activo,orden=EXCLUDED.orden,actualizado_at=NOW(),actualizado_por=EXCLUDED.actualizado_por`,
+      [area.key,area.nombre,area.rol,input.responsable.trim(),correo,input.activo,AREAS_RECLAMOS.indexOf(area)+1,usuario]);
+    await registrarAuditoriaTx(c,{usuario,accion:'ACTUALIZAR_RESPONSABLE_RECLAMOS'});
+  });
+}
+
+export async function guardarPermisosReclamos(permisos:Array<{categoriaKey:string;areaKey:string;puedeVer:boolean;puedeSolucionar:boolean}>,usuario:string){
+  const validos=permisos.filter(item=>CATEGORIAS_RECLAMOS.some(c=>c.key===item.categoriaKey)&&AREAS_RECLAMOS.some(a=>a.key===item.areaKey));
+  if(validos.length!==CATEGORIAS_RECLAMOS.length*AREAS_RECLAMOS.length) throw new Error('La matriz de permisos está incompleta.');
+  await inTransaction(async c=>{
+    await c.query(`INSERT INTO reclamo_permisos (categoria_key,area_key,puede_ver,puede_solucionar,actualizado_at,actualizado_por)
+      SELECT x.categoria_key,x.area_key,x.puede_ver,x.puede_solucionar,NOW(),$2
+      FROM jsonb_to_recordset($1::jsonb) AS x(categoria_key text,area_key text,puede_ver boolean,puede_solucionar boolean)
+      ON CONFLICT (categoria_key,area_key) DO UPDATE SET puede_ver=EXCLUDED.puede_ver,puede_solucionar=EXCLUDED.puede_solucionar,actualizado_at=NOW(),actualizado_por=EXCLUDED.actualizado_por`,
+      [JSON.stringify(validos.map(item=>({categoria_key:item.categoriaKey,area_key:item.areaKey,puede_ver:item.puedeVer,puede_solucionar:item.puedeSolucionar}))),usuario]);
+    await registrarAuditoriaTx(c,{usuario,accion:'ACTUALIZAR_PERMISOS_RECLAMOS'});
+  });
+}
 
 export async function listarReclamosParaRol(rol:RolReclamo,pagina=1,tamano=25){
   const limite=Math.min(50,Math.max(1,Math.trunc(tamano)||25));
