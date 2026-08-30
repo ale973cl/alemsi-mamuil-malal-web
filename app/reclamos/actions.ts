@@ -1,6 +1,6 @@
 'use server';
 import { guardarReclamo } from '@/lib/db/comensal-gestion';
-import { agregarAdjuntoInicial } from '@/lib/db/reclamos';
+import { agregarAdjuntoInicial, obtenerCorreoResponsableReclamo } from '@/lib/db/reclamos';
 import { getComensalSession } from '@/lib/auth/comensal-session';
 import { enviarCorreoSmtp, type SmtpAttachment } from '@/lib/email/smtp';
 import { redirect } from 'next/navigation';
@@ -35,7 +35,9 @@ function plantillaConfirmacion(tipoOriginal:string){
 }
 
 function correoValido(valor:string){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor);}
-function destinoInterno(categoriaOriginal:string){
+async function destinoInterno(categoriaOriginal:string){
+  const configurado=await obtenerCorreoResponsableReclamo(categoriaOriginal);
+  if(correoValido(configurado)) return configurado;
   const categoria=categoriaOriginal.trim().toLowerCase();
   if(categoria.includes('deuda')||categoria.includes('pago')||categoria.includes('cobro')) return 'finanzas@alemsi.cl';
   if(categoria.includes('comida')||categoria.includes('aliment')){
@@ -90,7 +92,7 @@ export async function reclamoAction(fd:FormData){
     if(!envio.ok) console.error('RECLAMO_SMTP_ERROR',envio.errorType);
   }
 
-  const destino=destinoInterno(registro.categoria);
+  const destino=await destinoInterno(registro.categoria);
   if(destino){
     const html=layout('Nuevo caso para revisión',`
       <p style="margin:0 0 16px;font-size:14px;line-height:1.55;color:#42515a">Se registró un caso que requiere gestión interna.</p>

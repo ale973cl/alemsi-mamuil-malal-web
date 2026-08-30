@@ -4,6 +4,8 @@ import { requireUser } from '@/lib/auth/session';
 import { dashboardGerencia } from '@/lib/db/gerencia';
 import { listarFinanzas } from '@/lib/db/finanzas';
 import { obtenerMinutasRango } from '@/lib/db/minutas';
+import { listarReclamosParaRol } from '@/lib/db/reclamos';
+import { resumenSatisfaccion } from '@/lib/db/satisfaccion';
 
 export const dynamic='force-dynamic';
 
@@ -25,7 +27,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{inicio?
   const inicio=/^\d{4}-\d{2}-\d{2}$/.test(params.inicio||'')?params.inicio!:rango[0];
   const fin=/^\d{4}-\d{2}-\d{2}$/.test(params.fin||'')&&params.fin!>=inicio?params.fin!:rango[1];
   const periodo=mesActualChile();
-  const [d,minuta,finanzas]=await Promise.all([dashboardGerencia(),obtenerMinutasRango(inicio,fin),listarFinanzas()]);
+  const [d,minuta,finanzas,reclamos,satisfaccion]=await Promise.all([dashboardGerencia(),obtenerMinutasRango(inicio,fin),listarFinanzas(),listarReclamosParaRol('Gerencia'),resumenSatisfaccion()]);
 
   const reservadoPeriodo=finanzas.reduce((sum:number,row:any)=>sum+montoRango(row,periodo.desde,periodo.hasta),0);
   const pagadoPeriodo=finanzas.filter(esPagado).reduce((sum:number,row:any)=>sum+montoRango(row,periodo.desde,periodo.hasta),0);
@@ -41,6 +43,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{inicio?
       ['Reservado período',reservadoPeriodo],['Pagado período',pagadoPeriodo],['Pendiente período',pendientePeriodo],['Por validar período',porValidarPeriodo],['Deuda anterior acumulada',deudaAnterior],['Saldo total por recaudar',saldoTotal],
     ].map(([label,value])=><div key={String(label)} className="rounded-2xl border bg-white p-4 shadow-sm"><div className="text-sm text-[#6B7570]">{label}</div><div className="mt-1 text-2xl font-black text-[#0E2A23]">${Number(value).toLocaleString('es-CL')}</div></div>)}</section>
     <div className="text-sm text-[#6B7570]">Período financiero estándar: <b>{periodo.desde}</b> → <b>{periodo.hasta}</b></div>
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{[['Satisfacción servicio',satisfaccion.servicio||'—'],['Satisfacción plataforma',satisfaccion.plataforma||'—'],['Encuestas recibidas',satisfaccion.respuestas],['Reclamos visibles',reclamos.length]].map(([label,value])=><div key={String(label)} className="rounded-2xl border bg-white p-4"><div className="text-sm text-[#6B7570]">{label}</div><div className="mt-1 text-2xl font-black">{String(value)}</div></div>)}</section>
 
     <section className="rounded-2xl border bg-white p-5"><div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-extrabold tracking-[.14em] text-[#1DB954]">MINUTA OFICIAL PUBLICADA</p><h2 className="text-xl font-black">Ciclo operativo viernes → jueves</h2><p className="text-sm text-[#6B7570]">Vista estándar de 7 días · solo lectura.</p></div><form className="flex flex-wrap items-end gap-2"><label className="text-sm font-bold">Desde <input type="date" name="inicio" defaultValue={inicio} className="ml-1 rounded-lg border p-2"/></label><label className="text-sm font-bold">Hasta <input type="date" name="fin" defaultValue={fin} className="ml-1 rounded-lg border p-2"/></label><button className="rounded-lg border px-3 py-2 font-bold">Consultar</button></form></div><div className="mt-4"><MinutaPublicada rows={minuta as any} compactWeekly/></div></section>
 

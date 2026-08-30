@@ -1,0 +1,12 @@
+'use client';
+import { useState } from 'react';
+import { encuestaAction } from '@/app/mis-reservas/actions';
+
+const preguntasServicio=[['servicio_general','Evaluación general'],['comida','Calidad de la comida'],['presentacion','Presentación'],['temperatura','Temperatura'],['atencion','Atención']] as const;
+const preguntasPlataforma=[['facilidad','Facilidad de uso'],['claridad','Claridad'],['agilidad','Agilidad']] as const;
+
+export default function EncuestaSatisfaccion({rut,codigo,fecha}:{rut:string;codigo:string;fecha:string}){
+  const [baja,setBaja]=useState(false);
+  const escala=(name:string,label:string)=><label className="text-sm font-bold">{label}<select name={name} required defaultValue="" onChange={e=>{if(preguntasServicio.some(([key])=>key===name))setBaja(v=>v||Number(e.target.value)<=2)}} className="mt-1 w-full rounded-lg border bg-white p-2 font-normal"><option value="" disabled>Selecciona 1 a 5</option>{[1,2,3,4,5].map(n=><option key={n} value={n}>{n}</option>)}</select></label>;
+  return <details className="mt-4 rounded-xl border border-[#0D9B91]/30 bg-[#EEF7F6] p-3"><summary className="cursor-pointer font-black">Evaluar servicio y plataforma</summary><p className="mt-2 text-sm text-[#5E6B66]">Encuesta voluntaria y no bloqueante. Una calificación baja no genera un reclamo automáticamente.</p><form action={encuestaAction} className="mt-3 space-y-4"><input type="hidden" name="rut" value={rut}/><input type="hidden" name="codigo" value={codigo}/><input type="hidden" name="fecha" value={fecha}/><fieldset><legend className="font-black">Servicio de alimentación</legend><div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">{preguntasServicio.map(([n,l])=><span key={n}>{escala(n,l)}</span>)}</div><label className="mt-3 block text-sm font-bold">¿Qué ocurrió o qué mejorarías?<textarea name="observacion" required={baja} placeholder={baja?'Obligatorio por calificación baja':'Opcional'} className="mt-1 min-h-20 w-full rounded-lg border bg-white p-2 font-normal"/></label></fieldset><fieldset><legend className="font-black">Aplicación / página</legend><div className="mt-2 grid gap-2 sm:grid-cols-3">{preguntasPlataforma.map(([n,l])=><span key={n}>{escala(n,l)}</span>)}</div><label className="mt-3 block text-sm font-bold">¿Qué agregarías, cambiarías o quitarías?<textarea name="mejora" className="mt-1 min-h-20 w-full rounded-lg border bg-white p-2 font-normal"/></label></fieldset><button className="rounded-lg bg-[#1DB954] px-4 py-2 font-black">Enviar evaluación</button></form></details>;
+}

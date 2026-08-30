@@ -1,5 +1,6 @@
 import ComprobanteReservaLink from '@/components/ComprobanteReservaLink';
 import ComensalNav from '@/components/ComensalNav';
+import EncuestaSatisfaccion from '@/components/EncuestaSatisfaccion';
 import { getComensalSession } from '@/lib/auth/comensal-session';
 import { listarMisReservas } from '@/lib/db/comensal-gestion';
 import { obtenerReglasReserva } from '@/lib/db/reservas';
@@ -15,6 +16,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{rut?:st
   let data:any=null,error='';
   if(rut){try{data=await listarMisReservas(rut)}catch(e){error=e instanceof Error?e.message:'Error'}}
   const reglas=await obtenerReglasReserva();
+  const hoy=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Santiago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 
   return <main className="min-h-screen bg-[#F6F3EA] px-4 py-8">
     <div className="mx-auto max-w-5xl rounded-2xl border bg-white p-5">
@@ -39,6 +41,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{rut?:st
             return <div key={r.id} className="rounded-lg bg-[#F6F3EA] p-3">
               <div className="grid gap-2 md:grid-cols-[100px_120px_1fr_120px_auto]"><span>{r.fecha}</span><b>{r.servicio}</b><span>{r.plato_reservado}</span><span>{r.estado_reserva||'ACTIVA'}</span>{directa?<form action={cancelarAction}><input type="hidden" name="rut" value={rut}/><input type="hidden" name="id" value={r.id}/><button className="rounded-lg border border-[#D4AF37] px-3 py-1 font-bold">Cancelar</button></form>:<span className="text-xs text-[#6B7570]">{activa?'Fuera de plazo directo':'Histórico'}</span>}</div>
               {activa&&!directa&&<details className="mt-2 rounded-lg border bg-white p-2"><summary className="cursor-pointer text-sm font-bold">Solicitar anulación extraordinaria de este servicio</summary><form action={solicitarAnulacionExtraordinariaAction} className="mt-2 flex flex-col gap-2 sm:flex-row"><input type="hidden" name="rut" value={rut}/><input type="hidden" name="id" value={r.id}/><input name="motivo" required minLength={5} placeholder="Motivo de la solicitud" className="min-h-10 flex-1 rounded-lg border px-3"/><button className="rounded-lg bg-[#0E2A23] px-4 py-2 font-bold text-white">Enviar a Admin Casino</button></form></details>}
+              {activa&&String(r.fecha)<hoy&&<EncuestaSatisfaccion rut={rut} codigo={r.codigo_reserva} fecha={String(r.fecha)}/>}
             </div>
           })}</div>
 

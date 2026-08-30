@@ -5,6 +5,8 @@ import { requireUser } from '@/lib/auth/session';
 import { listarFinanzas } from '@/lib/db/finanzas';
 import { estadoBandeja } from '@/lib/reglas/finanzas';
 import { pagoAction, solicitarInformacionPagoAction, validarSinComprobanteAction } from './actions';
+import { listarReclamosParaRol } from '@/lib/db/reclamos';
+import ReclamosGestion from '@/components/ReclamosGestion';
 
 const estados=[
   ['global','Todos'],
@@ -50,7 +52,8 @@ function estadoVisible(row:any){
 export default async function Page({searchParams}:{searchParams:Promise<{estado?:string;institucion?:string;medio?:string;q?:string;desde?:string;hasta?:string}>}){
   const u=await requireUser(['Finanzas','AdminTotal']);
   const params=await searchParams;
-  const rows=await listarFinanzas();
+  const [rows,reclamosAsignados]=await Promise.all([listarFinanzas(),listarReclamosParaRol('Finanzas')]);
+  const reclamosPago=reclamosAsignados.filter((r:any)=>/pago|deuda|cobro/i.test(String(r.categoria||'')));
   const estado=estados.some(([key])=>key===params.estado)?String(params.estado||'global'):'global';
   const desde=String(params.desde||'').trim();
   const hasta=String(params.hasta||'').trim();
@@ -95,6 +98,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{estado?
       <h1 className="text-2xl font-black text-[#0E2A23]">Bandeja financiera</h1>
       <p className="mt-1 text-sm text-[#6B7570]">Histórico completo y una sola lectura financiera. Los indicadores muestran {desde&&hasta?'el período seleccionado':'el mes actual'} y separan la deuda arrastrada de períodos anteriores.</p>
     </section>
+    <section className="rounded-2xl border bg-white p-5"><h2 className="text-xl font-black">Reclamos de pago asignados</h2><p className="text-sm text-[#6B7570]">Solo casos financieros derivados a este perfil.</p><ReclamosGestion rows={reclamosPago}/></section>
 
     <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {[

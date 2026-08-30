@@ -14,6 +14,7 @@ import { publicarMinutaDirecta } from '@/lib/db/publicacion-directa-minuta';
 import { resolverSolicitudExtraordinaria } from '@/lib/db/solicitudes-extraordinarias';
 import type { FilaMinutaInput } from '@/lib/reglas/minutas';
 import { revalidatePath } from 'next/cache';
+import { guardarResponsableReclamo } from '@/lib/db/reclamos';
 
 function numeroEntero(fd:FormData,nombre:string,porDefecto:number,min:number,max:number){
   const raw=String(fd.get(nombre)??'').trim();
@@ -107,4 +108,10 @@ export async function resolverSolicitudExtraordinariaAction(fd:FormData){
   revalidatePath('/admin-casino');
   revalidatePath('/mis-reservas');
   revalidatePath('/cocina');
+}
+
+export async function responsableReclamoAction(fd:FormData){
+  const u=await requireUser(['AdminCasino','AdminTotal']);
+  await guardarResponsableReclamo({categoria:String(fd.get('categoria')||''),responsable:String(fd.get('responsable')||''),correo:String(fd.get('correo')||''),usuario:u.username});
+  revalidatePath('/admin-casino');
 }
