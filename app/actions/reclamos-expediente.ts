@@ -2,10 +2,10 @@
 
 import { revalidatePath } from 'next/cache';
 import { requireUser } from '@/lib/auth/session';
-import { agregarMovimientoReclamo, type RolReclamo } from '@/lib/db/reclamos';
-import { notificarDerivacionReclamo, obtenerDestinoReclamo } from '@/lib/reclamos-routing';
+import { agregarMovimientoReclamo, obtenerDetalleReclamo, puedeGestionarReclamo, type RolReclamo } from '@/lib/db/reclamos';
+import { notificarDerivacionReclamo, obtenerDestinoReclamo, obtenerRuteoReclamo } from '@/lib/reclamos-routing';
 
-const ROLES:RolReclamo[]=['AdminCasino','AdminTotal','Coordinacion','Gerencia','Finanzas'];
+const ROLES:RolReclamo[]=['AdminCasino','AdminTotal','Coordinacion','Gerencia','Finanzas','Cocina'];
 
 async function archivoDesdeForm(fd:FormData){
   const file=fd.get('archivo');
@@ -26,9 +26,10 @@ export async function movimientoReclamoAction(fd:FormData){
   const estado=String(fd.get('estado')||'').trim()||undefined;
   if(!reclamoId) throw new Error('Reclamo inválido.');
   if(!mensaje&&accion!=='CERRAR') throw new Error('Indica la acción, respuesta o antecedente.');
+  if(!(await puedeGestionarReclamo(reclamoId,rol))) throw new Error('Tu perfil no tiene permiso para gestionar este reclamo.');
 
-  // La derivación nunca solicita un correo manual. El área elegida resuelve
-  // responsable, rol y correo desde el maestro central antes de modificar el caso.
+  const caso=await obtenerDetalleReclamo(reclamoId);
+  if(!caso) throw new Error('Reclamo no encontrado.');
   const destino=destinoArea?await obtenerDestinoReclamo(destinoArea):null;
 
   await agregarMovimientoReclamo({
@@ -36,7 +37,7 @@ export async function movimientoReclamoAction(fd:FormData){
     actor:u.nombre||u.username,
     actorRol:rol,
     accion,
-    destinoRol:destino?destino.rol as RolReclamo:null,
+    destinoRol:destino?destino.rol:null,
     mensaje,
     estado,
     archivo:await archivoDesdeForm(fd),
@@ -44,21 +45,16 @@ export async function movimientoReclamoAction(fd:FormData){
 
   if(destino){
     try{
-      await notificarDerivacionReclamo({
-        destino,
-        reclamoId,
-        actor:u.nombre||u.username,
-        mensaje,
-        estado,
-      });
-    }catch(error){
-      console.error('RECLAMO_DERIVACION_SMTP_ERROR',{reclamoId,area:destino.area_key,error});
-    }
+      const ruteo=await obtenerRuteoReclamo(String(caso.categoria||''));
+      await notificarDerivacionReclamo({destino,copias:ruteo.copias,reclamoId,actor:u.nombre||u.username,mensaje,estado});
+    }catch(error){console.error('RECLAMO_DERIVACION_SMTP_ERROR',{reclamoId,area:destino.area_key,error});}
   }
 
   revalidatePath('/admin-casino');
   revalidatePath('/coordinacion');
   revalidatePath('/gerencia');
   revalidatePath('/finanzas');
+  revalidatePath('/cocina');
   revalidatePath('/reclamos-gestion');
+  revalidatePath('/reclamos');
 }
