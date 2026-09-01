@@ -14,6 +14,7 @@ export type ReglasReserva = {
   excepciones_habilitadas: number;
   modalidad_cierre?: 'DIA_COMPLETO'|'HORAS_EXACTAS';
   anticipacion_oficina_horas?: number;
+  anticipacion_paso_horas?: number;
   anticipacion_otros_horas?: number;
   ventana_maxima_dias?: number;
 };
@@ -24,7 +25,8 @@ export const REGLAS_RESERVA_DEFAULT: ReglasReserva = {
   max_dias_consecutivos: 7,
   excepciones_habilitadas: 1,
   modalidad_cierre:'DIA_COMPLETO',
-  anticipacion_oficina_horas:48,
+  anticipacion_oficina_horas:24,
+  anticipacion_paso_horas:24,
   anticipacion_otros_horas:48,
   ventana_maxima_dias:31,
 };
@@ -132,9 +134,22 @@ export function reservaComercialHabilitada(
   return ahora.getTime() < cierre;
 }
 
+export function reservaPasoHabilitada(
+  fechaIso:string,
+  anticipacionHoras:number,
+  ahora=new Date(),
+  timeZone='America/Santiago',
+):boolean {
+  if(timeZone!==ZONA_CHILE) throw new Error(`Zona operacional no soportada: ${timeZone}`);
+  const inicioDia=epochHoraChile(fechaIso,0);
+  return ahora.getTime()<inicioDia-Math.max(0,Number(anticipacionHoras||24))*3_600_000;
+}
+
 export function anticipacionParaInstitucion(reglas:ReglasReserva,institucion:string):number{
-  const oficina=tipoInstitucion(institucion)==='administrativos';
-  return Number(oficina?reglas.anticipacion_oficina_horas:reglas.anticipacion_otros_horas) || Number(reglas.anticipacion_reserva_horas);
+  const tipo=tipoInstitucion(institucion);
+  if(tipo==='administrativos') return Number(reglas.anticipacion_oficina_horas) || 24;
+  if(tipo==='paso') return Number(reglas.anticipacion_paso_horas) || 24;
+  return Number(reglas.anticipacion_otros_horas) || Number(reglas.anticipacion_reserva_horas);
 }
 
 export function fechaDentroVentanaMaxima(fechaIso:string,maxDias:number,ahora=new Date()):boolean{
