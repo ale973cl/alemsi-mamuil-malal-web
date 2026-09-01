@@ -12,7 +12,6 @@ export default async function ConfiguracionReclamos({responsables,permisos,categ
   const permiso=(categoria:string,area:string)=>permisos.find(item=>item.categoria_key===categoria&&item.area_key===area);
   const principal=(categoria:string)=>categoriasActuales.find((item:any)=>item.categoria_key===categoria)?.area_principal||'';
   return <div className="mt-5 space-y-5">
-    <GestionReclamoAcciones/>
     <section className="rounded-2xl border border-[#A6B0AA]/25 bg-[#FFFDF8] p-4">
       <h3 className="text-lg font-black">1. Maestro de responsables</h3>
       <p className="text-sm text-[#6B7570]">Configura una sola vez el responsable y correo activo de cada área. Las derivaciones y avisos internos utilizan estos datos automáticamente.</p>
@@ -36,5 +35,7 @@ export default async function ConfiguracionReclamos({responsables,permisos,categ
       <p className="text-sm text-[#6B7570]">Las tres dimensiones son independientes. COPIA controla avisos internos; VER controla la bandeja; SOLUCIONAR controla las acciones del expediente.</p>
       <form action={guardarMatrizReclamosAction} className="mt-3"><div className="overflow-x-auto rounded-xl border bg-white"><table className="w-full min-w-[1120px] text-sm"><thead><tr className="bg-[#F6F3EA] text-left"><th className="p-3">Categoría</th>{AREAS_RECLAMOS.map(area=><th key={area.key} className="p-3 text-center">{area.nombre}</th>)}</tr></thead><tbody>{CATEGORIAS_RECLAMOS.map(categoria=><tr key={categoria.key} className="border-t"><th className="p-3 text-left">{categoria.nombre}</th>{AREAS_RECLAMOS.map(area=>{const actual=permiso(categoria.key,area.key);return <td key={area.key} className="p-3"><div className="flex justify-center gap-3"><label className="flex items-center gap-1"><input type="checkbox" name={`copia__${categoria.key}__${area.key}`} defaultChecked={actual?.recibe_copia??false}/> COPIA</label><label className="flex items-center gap-1"><input type="checkbox" name={`ver__${categoria.key}__${area.key}`} defaultChecked={actual?.puede_ver??false}/> VER</label><label className="flex items-center gap-1"><input type="checkbox" name={`solucionar__${categoria.key}__${area.key}`} defaultChecked={actual?.puede_solucionar??false}/> SOLUCIONAR</label></div></td>})}</tr>)}</tbody></table></div><button className="mt-3 rounded-lg bg-[#1DB954] px-5 py-2 font-black">Guardar matriz de permisos</button></form>
     </section>
+
+    <GestionReclamoAcciones/>
   </div>;
 }
