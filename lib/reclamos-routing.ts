@@ -72,3 +72,17 @@ export async function notificarActualizacionReclamo(input:{destino:DestinoReclam
   const html=`<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;background:#f4f6f5;padding:24px;color:#14232d"><div style="max-width:680px;margin:auto;background:#fff;border:1px solid #d7e1dc;border-radius:12px;overflow:hidden"><div style="background:#0B2D5B;color:#fff;padding:18px 22px;font-weight:800">ALEMSI · Gestión de Reclamos</div><div style="padding:22px"><h2 style="margin:0 0 16px;color:#0B2D5B">Actualización · ${esc(folio)}</h2><p><b>Acción:</b> ${esc(accionVisible)}</p><p><b>Registrado por:</b> ${esc(input.actor)}</p>${input.estado?`<p><b>Estado:</b> ${esc(input.estado)}</p>`:''}${input.mensaje?`<div style="margin-top:16px;padding:14px;background:#f7faf8;border:1px solid #d7e1dc;border-radius:8px"><b>Comentario / gestión</b><br>${esc(input.mensaje)}</div>`:''}<p style="margin-top:18px;font-size:13px;color:#5b6670">Este aviso se envía automáticamente al responsable actual y a las áreas configuradas en COPIA.</p></div></div></body></html>`;
   return enviarUnicos(destinos,{subject:asunto,text,html});
 }
+
+export async function notificarResolucionReclamoComensal(input:{reclamoId:number;rut:string;nombre:string;categoria:string;mensaje:string;estado:string}){
+  const rows=await query<{correo:string}>(`SELECT correo FROM comensales WHERE rut=$1 LIMIT 1`,[input.rut]);
+  const correo=String(rows[0]?.correo||'').trim().toLowerCase();
+  if(!correo) return {ok:false as const,motivo:'sin_correo_comensal'};
+  const folio=`R-${String(input.reclamoId).padStart(6,'0')}`;
+  const cerrado=String(input.estado).toLocaleLowerCase('es-CL')==='cerrado';
+  const titulo=cerrado?'Reclamo finalizado':'Reclamo resuelto';
+  const text=[`Hola ${input.nombre},`,`Tu caso ${folio} ha sido ${cerrado?'finalizado':'resuelto'}.`,`Categoría: ${input.categoria}`,`Estado: ${input.estado}`,input.mensaje?`Respuesta / solución: ${input.mensaje}`:'','Puedes revisar el seguimiento desde el portal ALEMSI.'].filter(Boolean).join('\n\n');
+  const html=`<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;background:#f4f6f5;padding:24px;color:#14232d"><div style="max-width:680px;margin:auto;background:#fff;border:1px solid #d7e1dc;border-radius:12px;overflow:hidden"><div style="background:#0B2D5B;color:#fff;padding:18px 22px;font-weight:800">ALEMSI · Atención al Comensal</div><div style="padding:22px"><h2 style="margin:0 0 16px;color:#0B2D5B">${esc(titulo)} · ${esc(folio)}</h2><p>Hola <b>${esc(input.nombre)}</b>,</p><p>Tu caso ha sido actualizado y quedó en estado <b>${esc(input.estado)}</b>.</p><p><b>Categoría:</b> ${esc(input.categoria)}</p>${input.mensaje?`<div style="margin-top:16px;padding:14px;background:#eef7f6;border:1px solid #cfe5df;border-radius:8px"><b>Respuesta / solución</b><br>${esc(input.mensaje)}</div>`:''}<p style="margin-top:18px;font-size:13px;color:#5b6670">Conserva este correo y el folio como respaldo del cierre de tu caso.</p></div></div></body></html>`;
+  const result=await enviarCorreoSmtp({to:correo,subject:`ALEMSI · ${titulo} · ${folio}`,text,html});
+  if(!result.ok) return {ok:false as const,motivo:result.errorType};
+  return {ok:true as const};
+}
