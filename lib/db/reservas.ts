@@ -12,6 +12,7 @@ import {
   maxConsecutivosFechas,
   normalizarRutDb,
   reservaComercialHabilitada,
+  reservaPasoHabilitada,
   tipoInstitucion,
   validarEleccionesPorDia,
   type EleccionReserva,
@@ -22,7 +23,7 @@ export async function obtenerReglasReserva(): Promise<ReglasReserva> {
   try {
     const rows = await query<Partial<ReglasReserva>>(
       `SELECT anticipacion_reserva_horas,cancelacion_directa_horas,max_dias_consecutivos,excepciones_habilitadas,
-              modalidad_cierre,anticipacion_oficina_horas,anticipacion_otros_horas,ventana_maxima_dias
+              modalidad_cierre,anticipacion_oficina_horas,anticipacion_paso_horas,anticipacion_otros_horas,ventana_maxima_dias
          FROM configuracion_reservas
         WHERE id=1
         LIMIT 1`,
@@ -164,10 +165,14 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
     throw new Error(`Ya tienes una reserva activa para ${dias}. Se conserva la primera; usa Mis reservas → Editar para cambiar plato u opción.`);
   }
 
+  const ahoraValidacion = new Date();
   for (const item of input.elecciones) {
-    if(!fechaDentroVentanaMaxima(item.fecha,Number(reglas.ventana_maxima_dias))) throw new Error(`${item.fecha} está fuera de la ventana máxima de reserva.`);
+    if(!fechaDentroVentanaMaxima(item.fecha,Number(reglas.ventana_maxima_dias),ahoraValidacion)) throw new Error(`${item.fecha} está fuera de la ventana máxima de reserva.`);
     const exception = Number(reglas.excepciones_habilitadas) === 1 && (await excepcionReservaActiva(rut, item.fecha));
-    if (tipo!=='paso'&&!esCoordinador&&!exception && !reservaComercialHabilitada(item.fecha,item.servicio,anticipacion,new Date(),'America/Santiago',reglas.modalidad_cierre)) {
+    if (tipo==='paso' && !exception && !reservaPasoHabilitada(item.fecha,anticipacion,ahoraValidacion)) {
+      throw new Error(`ALEMSI Paso Fronterizo debe reservar con al menos ${anticipacion} horas de anticipación. La fecha ${item.fecha} ya está cerrada.`);
+    }
+    if (tipo!=='paso'&&!esCoordinador&&!exception && !reservaComercialHabilitada(item.fecha,item.servicio,anticipacion,ahoraValidacion,'America/Santiago',reglas.modalidad_cierre)) {
       throw new Error(`${item.servicio} del ${item.fecha} está fuera del plazo de reserva.`);
     }
     if (!(await validarPlatoPublicado(item))) {
