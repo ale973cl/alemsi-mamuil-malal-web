@@ -15,6 +15,15 @@ export async function obtenerDestinoReclamo(areaKey:string):Promise<DestinoRecla
   return destino;
 }
 
+export async function obtenerDestinoReclamoActual(areaORol:string):Promise<DestinoReclamo|null>{
+  const valor=String(areaORol||'').trim();
+  if(!valor) return null;
+  const rows=await query<DestinoReclamo>(`SELECT area_key,area_nombre,rol,responsable,correo FROM reclamo_areas_responsables WHERE (area_key=$1 OR rol=$1) AND activo=TRUE ORDER BY CASE WHEN area_key=$1 THEN 0 ELSE 1 END LIMIT 1`,[valor]);
+  const destino=rows[0]||null;
+  if(!destino||!String(destino.correo||'').trim()) return null;
+  return destino;
+}
+
 export async function obtenerRuteoReclamo(categoria:string){
   const categoriaKey=normalizarCategoriaReclamo(categoria);
   const principalRows=await query<DestinoReclamo>(`SELECT a.area_key,a.area_nombre,a.rol,a.responsable,a.correo FROM reclamo_categorias_config c JOIN reclamo_areas_responsables a ON a.area_key=c.area_principal WHERE c.categoria_key=$1 AND a.activo=TRUE LIMIT 1`,[categoriaKey]);
@@ -51,4 +60,15 @@ export async function notificarDerivacionReclamo(input:{destino:DestinoReclamo;c
   const text=[`Se ha derivado el reclamo ${folio} a ${input.destino.area_nombre}.`,input.destino.responsable?`Responsable: ${input.destino.responsable}`:'',`Derivado por: ${input.actor}`,input.estado?`Estado: ${input.estado}`:'',`Gestión / instrucción: ${input.mensaje}`,'Ingrese al portal ALEMSI para revisar el expediente y su trazabilidad.'].filter(Boolean).join('\n');
   const html=`<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;background:#f4f6f5;padding:24px;color:#14232d"><div style="max-width:680px;margin:auto;background:#fff;border:1px solid #d7e1dc;border-radius:12px;overflow:hidden"><div style="background:#0B2D5B;color:#fff;padding:18px 22px;font-weight:800">ALEMSI · Gestión de Reclamos</div><div style="padding:22px"><h2 style="margin:0 0 16px;color:#0B2D5B">${esc(folio)} derivado a ${esc(input.destino.area_nombre)}</h2>${input.destino.responsable?`<p><b>Responsable:</b> ${esc(input.destino.responsable)}</p>`:''}<p><b>Derivado por:</b> ${esc(input.actor)}</p>${input.estado?`<p><b>Estado:</b> ${esc(input.estado)}</p>`:''}<div style="margin-top:16px;padding:14px;background:#f7faf8;border:1px solid #d7e1dc;border-radius:8px"><b>Gestión / instrucción</b><br>${esc(input.mensaje)}</div></div></div></body></html>`;
   return enviarUnicos([input.destino,...(input.copias||[])],{subject:asunto,text,html});
+}
+
+export async function notificarActualizacionReclamo(input:{destino:DestinoReclamo|null;copias?:DestinoReclamo[];reclamoId:number;actor:string;accion:string;mensaje:string;estado?:string}){
+  const destinos=[...(input.destino?[input.destino]:[]),...(input.copias||[])];
+  if(!destinos.some(d=>String(d.correo||'').trim())) return 0;
+  const folio=`R-${String(input.reclamoId).padStart(6,'0')}`;
+  const accionVisible=String(input.accion||'ACTUALIZAR').replaceAll('_',' ');
+  const asunto=`ALEMSI · Actualización de reclamo · ${folio} · ${accionVisible}`;
+  const text=[`El reclamo ${folio} tiene una nueva actualización.`,`Acción: ${accionVisible}`,`Registrado por: ${input.actor}`,input.estado?`Estado: ${input.estado}`:'',input.mensaje?`Comentario / gestión: ${input.mensaje}`:'','Ingrese al portal ALEMSI para revisar el expediente y su trazabilidad.'].filter(Boolean).join('\n\n');
+  const html=`<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;background:#f4f6f5;padding:24px;color:#14232d"><div style="max-width:680px;margin:auto;background:#fff;border:1px solid #d7e1dc;border-radius:12px;overflow:hidden"><div style="background:#0B2D5B;color:#fff;padding:18px 22px;font-weight:800">ALEMSI · Gestión de Reclamos</div><div style="padding:22px"><h2 style="margin:0 0 16px;color:#0B2D5B">Actualización · ${esc(folio)}</h2><p><b>Acción:</b> ${esc(accionVisible)}</p><p><b>Registrado por:</b> ${esc(input.actor)}</p>${input.estado?`<p><b>Estado:</b> ${esc(input.estado)}</p>`:''}${input.mensaje?`<div style="margin-top:16px;padding:14px;background:#f7faf8;border:1px solid #d7e1dc;border-radius:8px"><b>Comentario / gestión</b><br>${esc(input.mensaje)}</div>`:''}<p style="margin-top:18px;font-size:13px;color:#5b6670">Este aviso se envía automáticamente al responsable actual y a las áreas configuradas en COPIA.</p></div></div></body></html>`;
+  return enviarUnicos(destinos,{subject:asunto,text,html});
 }
