@@ -13,19 +13,34 @@ export default async function ConfiguracionReclamos({responsables,permisos,categ
   const summaryClass="cursor-pointer select-none list-none rounded-2xl border border-[#A6B0AA]/25 bg-[#FFFDF8] px-4 py-4 text-lg font-black text-[#0E2A23] marker:hidden";
   return <div className="config-reclamos mt-5 space-y-3">
     <style>{`section:has(> .config-reclamos){display:flex;flex-direction:column}section:has(> .config-reclamos)>.config-reclamos{order:20}section:has(> .config-reclamos)>div.mt-5{order:10}`}</style>
-    <div className="mb-2"><h3 className="text-lg font-black">Configuración de Reclamos</h3><p className="text-sm text-[#6B7570]">Estos paneles permanecen cerrados para priorizar la bandeja operacional. Ábrelos solo cuando necesites modificar responsables, ruteo o permisos.</p></div>
+    <div className="mb-2"><h3 className="text-lg font-black">Configuración de Reclamos</h3><p className="text-sm text-[#6B7570]">Los datos ya registrados se muestran en modo compacto. Usa Editar solo cuando necesites modificarlos.</p></div>
 
     <details className="group rounded-2xl border border-[#A6B0AA]/20 bg-white">
       <summary className={summaryClass}><span className="flex items-center justify-between gap-3"><span>1. Maestro de responsables</span><span className="text-sm font-bold text-[#0D9B91] group-open:hidden">Desplegar ▼</span><span className="hidden text-sm font-bold text-[#0D9B91] group-open:inline">Cerrar ▲</span></span></summary>
       <section className="border-t border-[#A6B0AA]/20 p-4">
-        <p className="text-sm text-[#6B7570]">Configura una sola vez el responsable y correo activo de cada área. Las derivaciones y avisos internos utilizan estos datos automáticamente.</p>
-        <div className="mt-3 space-y-2">{AREAS_RECLAMOS.map(area=>{const actual=responsable(area.key);return <form action={guardarResponsableReclamoAction} key={area.key} className="grid min-w-0 gap-2 rounded-xl border bg-white p-3 md:grid-cols-[minmax(150px,1fr)_minmax(180px,1fr)_minmax(220px,1.2fr)_auto_auto] md:items-end">
-          <input type="hidden" name="area_key" value={area.key}/><div><div className="text-xs font-bold text-[#6B7570]">Área</div><div className="font-black">{area.nombre}</div></div>
-          <label className="min-w-0 text-xs font-bold">Responsable<input name="responsable" defaultValue={actual?.responsable||''} className="mt-1 w-full min-w-0 rounded-lg border p-2 text-sm font-normal"/></label>
-          <label className="min-w-0 text-xs font-bold">Correo<input type="email" name="correo" defaultValue={actual?.correo||''} className="mt-1 w-full min-w-0 rounded-lg border p-2 text-sm font-normal"/></label>
-          <label className="flex items-center gap-2 rounded-lg bg-[#F6F3EA] px-3 py-2 text-sm font-bold"><input type="checkbox" name="activo" defaultChecked={actual?.activo??true}/> Activo</label>
-          <button className="rounded-lg bg-[#0E2A23] px-4 py-2 text-sm font-black text-white">Guardar</button>
-        </form>})}</div>
+        <p className="text-sm text-[#6B7570]">Cada registro guardado queda compacto. El botón Editar abre temporalmente sus campos; al guardar vuelve a cerrarse y el sistema reutiliza automáticamente ese correo en futuras derivaciones y avisos.</p>
+        <div className="mt-3 space-y-2">{AREAS_RECLAMOS.map(area=>{
+          const actual=responsable(area.key);
+          const guardado=Boolean(actual&&(actual.responsable?.trim()||actual.correo?.trim()));
+          return <details key={area.key} open={!guardado} className="group/responsable rounded-xl border bg-white">
+            <summary className="cursor-pointer list-none px-3 py-3 marker:hidden">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="font-black text-[#0E2A23]">{area.nombre}</div>
+                  {guardado?<div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-[#6B7570]"><span>{actual?.responsable||'Sin nombre'}</span><span className="break-all">{actual?.correo||'Sin correo'}</span><span className={actual?.activo?'font-bold text-[#087A64]':'font-bold text-[#9B6B00]'}>{actual?.activo?'Activo':'Inactivo'}</span></div>:<div className="mt-1 text-sm text-[#9B6B00]">Pendiente de completar</div>}
+                </div>
+                <span className="rounded-lg border px-3 py-2 text-sm font-black text-[#0D9B91] group-open/responsable:hidden">{guardado?'Editar':'Completar'}</span>
+                <span className="hidden rounded-lg border px-3 py-2 text-sm font-black text-[#6B7570] group-open/responsable:inline">Cancelar ▲</span>
+              </div>
+            </summary>
+            <form action={guardarResponsableReclamoAction} className="grid min-w-0 gap-2 border-t bg-[#FFFDF8] p-3 md:grid-cols-[minmax(150px,1fr)_minmax(180px,1fr)_minmax(220px,1.2fr)_auto_auto] md:items-end">
+              <input type="hidden" name="area_key" value={area.key}/><div><div className="text-xs font-bold text-[#6B7570]">Área</div><div className="font-black">{area.nombre}</div></div>
+              <label className="min-w-0 text-xs font-bold">Responsable<input name="responsable" defaultValue={actual?.responsable||''} className="mt-1 w-full min-w-0 rounded-lg border p-2 text-sm font-normal"/></label>
+              <label className="min-w-0 text-xs font-bold">Correo<input type="email" name="correo" defaultValue={actual?.correo||''} className="mt-1 w-full min-w-0 rounded-lg border p-2 text-sm font-normal"/></label>
+              <label className="flex items-center gap-2 rounded-lg bg-[#F6F3EA] px-3 py-2 text-sm font-bold"><input type="checkbox" name="activo" defaultChecked={actual?.activo??true}/> Activo</label>
+              <button className="rounded-lg bg-[#0E2A23] px-4 py-2 text-sm font-black text-white">Guardar</button>
+            </form>
+          </details>})}</div>
       </section>
     </details>
 
