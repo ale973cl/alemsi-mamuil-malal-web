@@ -22,7 +22,7 @@ export async function guardarRecetaAction(fd:FormData){
   }
   const margen=Number(String(fd.get('margen_produccion_pct')||'0').replace(',','.'));
   const merma=Number(String(fd.get('merma_pct')||'0').replace(',','.'));
-  const id=await guardarReceta({
+  await guardarReceta({
     id:Number(fd.get('id')||0)||undefined,
     plato:String(fd.get('plato')||''),
     porcionesBase:Number(fd.get('porciones_base')||0),
@@ -34,5 +34,5 @@ export async function guardarRecetaAction(fd:FormData){
   },u.nombre||u.username);
   revalidatePath('/recetas');
   revalidatePath('/cocina');
-  redirect(`/recetas?receta=${id}&guardado=1`);
+  redirect('/recetas?guardado=1');
 }
