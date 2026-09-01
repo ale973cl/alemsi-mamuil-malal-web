@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth/session';
 import { agregarMovimientoReclamo, obtenerDetalleReclamo, puedeGestionarReclamo, type RolReclamo } from '@/lib/db/reclamos';
-import { notificarActualizacionReclamo, notificarDerivacionReclamo, obtenerDestinoReclamo, obtenerDestinoReclamoActual, obtenerRuteoReclamo } from '@/lib/reclamos-routing';
+import { notificarActualizacionReclamo, notificarDerivacionReclamo, notificarResolucionReclamoComensal, obtenerDestinoReclamo, obtenerDestinoReclamoActual, obtenerRuteoReclamo } from '@/lib/reclamos-routing';
 
 const ROLES:RolReclamo[]=['AdminCasino','AdminTotal','Coordinacion','Gerencia','Finanzas','Cocina'];
 const ESTADO_POR_ACCION:Record<string,string>={
@@ -71,6 +71,21 @@ export async function movimientoReclamoAction(fd:FormData){
       await notificarActualizacionReclamo({destino:responsableActual,copias:ruteo.copias,reclamoId,actor:u.nombre||u.username,accion,mensaje,estado});
     }
   }catch(error){console.error('RECLAMO_ACTUALIZACION_SMTP_ERROR',{reclamoId,accion,error});}
+
+  if((accion==='RESPONDER'||accion==='CERRAR')&&estado){
+    try{
+      const aviso=await notificarResolucionReclamoComensal({
+        reclamoId,
+        rut:String(caso.rut||''),
+        nombre:String(caso.nombre||''),
+        categoria:String(caso.categoria||''),
+        mensaje,
+        estado,
+      });
+      if(aviso.ok) console.info('RECLAMO_COMENSAL_SMTP_OK',{reclamoId,accion});
+      else console.error('RECLAMO_COMENSAL_SMTP_SKIP',{reclamoId,accion,motivo:aviso.motivo});
+    }catch(error){console.error('RECLAMO_COMENSAL_SMTP_ERROR',{reclamoId,accion,error});}
+  }
 
   revalidatePath('/admin-casino');
   revalidatePath('/coordinacion');
