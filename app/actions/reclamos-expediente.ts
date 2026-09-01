@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth/session';
 import { agregarMovimientoReclamo, obtenerDetalleReclamo, puedeGestionarReclamo, type RolReclamo } from '@/lib/db/reclamos';
 import { notificarActualizacionReclamo, notificarDerivacionReclamo, notificarResolucionReclamoComensal, obtenerDestinoReclamo, obtenerDestinoReclamoActual, obtenerRuteoReclamo } from '@/lib/reclamos-routing';
+import { notificarCierreReclamoCoordinacion } from '@/lib/reclamos-cierre-coordinacion';
 
 const ROLES:RolReclamo[]=['AdminCasino','AdminTotal','Coordinacion','Gerencia','Finanzas','Cocina'];
 const ESTADO_POR_ACCION:Record<string,string>={
@@ -85,6 +86,12 @@ export async function movimientoReclamoAction(fd:FormData){
       if(aviso.ok) console.info('RECLAMO_COMENSAL_SMTP_OK',{reclamoId,accion});
       else console.error('RECLAMO_COMENSAL_SMTP_SKIP',{reclamoId,accion,motivo:aviso.motivo});
     }catch(error){console.error('RECLAMO_COMENSAL_SMTP_ERROR',{reclamoId,accion,error});}
+
+    try{
+      const avisoCoordinacion=await notificarCierreReclamoCoordinacion({reclamoId,estado,mensaje});
+      if(avisoCoordinacion.ok) console.info('RECLAMO_COORDINACION_CIERRE_SMTP_OK',{reclamoId,accion});
+      else console.error('RECLAMO_COORDINACION_CIERRE_SMTP_SKIP',{reclamoId,accion,motivo:avisoCoordinacion.motivo});
+    }catch(error){console.error('RECLAMO_COORDINACION_CIERRE_SMTP_ERROR',{reclamoId,accion,error});}
   }
 
   revalidatePath('/admin-casino');
