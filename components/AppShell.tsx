@@ -26,6 +26,7 @@ export default async function AppShell({user,children}:{user:SessionUser;childre
   const links=visibleTopLinks(user);
   const roleLabel=ROLE_LABEL[user.rol];
   const reclamosPendientes=await contarReclamosNotificacion(user);
+  const puedeConfigurarProduccion=user.rol==='AdminCasino'||user.rol==='AdminTotal';
 
   return <div className="min-h-screen bg-[#F6F3EA] text-[#071814]">
     <header className="border-b border-[#A6B0AA]/30 bg-[#FFFDF8] shadow-sm">
@@ -58,6 +59,7 @@ export default async function AppShell({user,children}:{user:SessionUser;childre
               {esReclamos&&reclamosPendientes>0&&<span aria-label={`${reclamosPendientes} reclamos pendientes asignados`} title={`${reclamosPendientes} reclamos pendientes asignados`} className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-black leading-none text-white shadow-sm">{reclamosPendientes>=50?'50+':reclamosPendientes}</span>}
             </Link>;
           })}
+          {puedeConfigurarProduccion&&<Link href="/admin-casino/parametros-produccion" className="rounded-xl border border-transparent px-3 py-2 text-sm font-bold text-[#0E2A23] hover:border-[#A6B0AA]/35 hover:bg-[#1DB954]/10">Margen / merma</Link>}
         </nav>
       </div>
     </header>
