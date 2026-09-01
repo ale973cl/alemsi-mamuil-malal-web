@@ -5,6 +5,8 @@ import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth/session';
 import { guardarReceta } from '@/lib/db/recetas';
 
+const UNIDADES_COCINA=new Set(['g','kg','ml','L','un','porción','cucharadita','cucharada','taza']);
+
 export async function guardarRecetaAction(fd:FormData){
   const u=await requireUser(['AdminCasino','AdminTotal']);
   const ingredientes=[] as Array<{ingrediente:string;cantidad:number;unidad:string}>;
@@ -15,6 +17,7 @@ export async function guardarRecetaAction(fd:FormData){
     if(!ingrediente&&!cantidadRaw&&!unidad) continue;
     const cantidad=Number(cantidadRaw);
     if(!ingrediente||!Number.isFinite(cantidad)||cantidad<0) throw new Error(`Revisa el ingrediente ${i+1} y su cantidad.`);
+    if(!unidad||!UNIDADES_COCINA.has(unidad)) throw new Error(`Selecciona una unidad válida para el ingrediente ${i+1}.`);
     ingredientes.push({ingrediente,cantidad,unidad});
   }
   const id=await guardarReceta({
