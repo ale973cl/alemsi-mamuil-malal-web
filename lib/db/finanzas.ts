@@ -1,6 +1,7 @@
 import 'server-only';
 import { inTransaction, query } from '@/lib/db/pool';
 import { registrarAuditoriaTx } from '@/lib/db/auditoria';
+import { pendienteConComprobante, pendienteSinComprobante } from '@/lib/reglas/finanzas';
 export { resumenFinanzas } from '@/lib/reglas/finanzas';
 
 export async function listarFinanzas(){
@@ -39,6 +40,13 @@ export async function listarFinanzas(){
       ORDER BY MAX(s.fecha) DESC
       LIMIT 250`,
   );
+}
+
+export async function contarActividadFinanzas(){
+  const rows=await listarFinanzas();
+  const porValidar=rows.filter(pendienteConComprobante).length;
+  const sinComprobante=rows.filter(pendienteSinComprobante).length;
+  return {porValidar,sinComprobante,total:porValidar+sinComprobante};
 }
 
 export async function obtenerDatosNotificacionFinanzas(codigo:string){
