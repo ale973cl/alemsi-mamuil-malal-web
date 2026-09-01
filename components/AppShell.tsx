@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { logoutAction } from '@/app/actions/auth';
 import type { SessionUser } from '@/lib/auth/session';
 import { HOME_BY_ROLE, MODULES_BY_ROLE, ROLE_LABEL } from '@/lib/reglas/permisos';
-import { listarReclamosParaRol, type RolReclamo } from '@/lib/db/reclamos';
+import { contarReclamosPendientesAsignados, type RolReclamo } from '@/lib/db/reclamos';
 
 function visibleTopLinks(user:SessionUser){
   return MODULES_BY_ROLE[user.rol]
@@ -15,8 +15,7 @@ const ROLES_RECLAMOS=new Set<RolReclamo>(['AdminCasino','AdminTotal','Coordinaci
 async function contarReclamosNotificacion(user:SessionUser){
   if(!ROLES_RECLAMOS.has(user.rol as RolReclamo)) return 0;
   try{
-    const rows=await listarReclamosParaRol(user.rol as RolReclamo,1,50);
-    return rows.filter((r:any)=>String(r.estado||'').trim().toLocaleLowerCase('es-CL')!=='cerrado').length;
+    return await contarReclamosPendientesAsignados(user.rol as RolReclamo);
   }catch(error){
     console.error('RECLAMOS_BADGE_ERROR',{rol:user.rol,error});
     return 0;
@@ -56,7 +55,7 @@ export default async function AppShell({user,children}:{user:SessionUser;childre
             const esReclamos=href==='/reclamos-gestion';
             return <Link key={href} href={href} className="relative inline-flex items-center gap-2 rounded-xl border border-transparent px-3 py-2 text-sm font-bold text-[#0E2A23] hover:border-[#A6B0AA]/35 hover:bg-[#1DB954]/10">
               <span>{label}</span>
-              {esReclamos&&reclamosPendientes>0&&<span aria-label={`${reclamosPendientes} reclamos pendientes`} title={`${reclamosPendientes} reclamos pendientes`} className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-black leading-none text-white shadow-sm">{reclamosPendientes>=50?'50+':reclamosPendientes}</span>}
+              {esReclamos&&reclamosPendientes>0&&<span aria-label={`${reclamosPendientes} reclamos pendientes asignados`} title={`${reclamosPendientes} reclamos pendientes asignados`} className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 py-0.5 text-[11px] font-black leading-none text-white shadow-sm">{reclamosPendientes>=50?'50+':reclamosPendientes}</span>}
             </Link>;
           })}
         </nav>
