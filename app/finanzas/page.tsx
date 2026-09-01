@@ -40,12 +40,13 @@ export default async function Page({searchParams}:{searchParams:Promise<{estado?
   const instituciones=[...new Set(rows.map((r:any)=>String(r.institucion||'').trim()).filter(Boolean))].sort();
   const medios=[...new Set(rows.map((r:any)=>String(r.metodo_pago||'').trim()).filter(Boolean))].sort();
   const periodo=normalizarPeriodoFinanciero(desde,hasta,mesActualChile());
+  const periodoSolicitado=Boolean(desde||hasta);
 
   const universo=rows.filter((row:any)=>{
     if(institucion&&String(row.institucion||'')!==institucion)return false;
     if(medio&&String(row.metodo_pago||'')!==medio)return false;
     if(q){const bolsa=[row.rut,row.nombre,row.codigo_reserva,row.institucion,row.metodo_pago].map(v=>String(v||'').toLocaleLowerCase('es-CL')).join(' ');if(!bolsa.includes(q))return false;}
-    if(!coincidePeriodoFinanciero(row,periodo))return false;
+    if(periodoSolicitado&&!coincidePeriodoFinanciero(row,periodo))return false;
     return true;
   });
   const visibles=universo.filter((row:any)=>coincideEstadoFinanciero(row,estado));
@@ -109,7 +110,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{estado?
 
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-[#6B7570]">
         <span>Mostrando <b>{visibles.length}</b> de <b>{rows.length}</b> reservas del histórico.</span>
-        <span>Período KPI: <b>{periodo.desde}</b> → <b>{periodo.hasta}</b></span>
+        <span>{periodoSolicitado?'Período de bandeja y KPI':'Bandeja: histórico completo · Período KPI'}: <b>{periodo.desde}</b> → <b>{periodo.hasta}</b></span>
       </div>
 
       <div className="mt-5 space-y-3">{visibles.map((r:any)=>{
