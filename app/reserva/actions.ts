@@ -11,6 +11,7 @@ import {
   normalizarRutDb,
   normalizarRutVisible,
   reservaComercialHabilitada,
+  reservaPasoHabilitada,
   tipoInstitucion,
   validarRutM11,
   type EleccionReserva,
@@ -57,11 +58,17 @@ export async function cargarMinutaDisponible(rutInput: string, inicio: string, f
   const reglas = await obtenerReglasReserva();
   const rows = await obtenerMinutasRango(inicio, fin);
   const tipo = tipoInstitucion(perfil.persona.institucion);
+  const anticipacion = anticipacionParaInstitucion(reglas,perfil.persona.institucion);
+  const ahora = new Date();
   const filtradas = rows.filter((row) => {
-    if(!fechaDentroVentanaMaxima(row.fecha,Number(reglas.ventana_maxima_dias))) return false;
+    if(!fechaDentroVentanaMaxima(row.fecha,Number(reglas.ventana_maxima_dias),ahora)) return false;
     if (tipo === 'administrativos' && row.servicio !== 'Almuerzo') return false;
-    if (tipo === 'paso') { const tipoOpcion = String(row.tipo_opcion ?? '').trim().toUpperCase(); if (!['OPCION 1', 'HIPOCALORICO'].includes(tipoOpcion)) return false; }
-    if ((tipo === 'comercial'||tipo==='administrativos') && !reservaComercialHabilitada(row.fecha,row.servicio,anticipacionParaInstitucion(reglas,perfil.persona.institucion),new Date(),'America/Santiago',reglas.modalidad_cierre)) return false;
+    if (tipo === 'paso') {
+      const tipoOpcion = String(row.tipo_opcion ?? '').trim().toUpperCase();
+      if (!['OPCION 1', 'HIPOCALORICO'].includes(tipoOpcion)) return false;
+      if (!reservaPasoHabilitada(row.fecha,anticipacion,ahora)) return false;
+    }
+    if ((tipo === 'comercial'||tipo==='administrativos') && !reservaComercialHabilitada(row.fecha,row.servicio,anticipacion,ahora,'America/Santiago',reglas.modalidad_cierre)) return false;
     return true;
   });
   return { ok: true as const, rows: filtradas, reglas };
