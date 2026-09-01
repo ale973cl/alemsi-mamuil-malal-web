@@ -20,14 +20,19 @@ export async function guardarRecetaAction(fd:FormData){
     if(!unidad||!UNIDADES_COCINA.has(unidad)) throw new Error(`Selecciona una unidad válida para el ingrediente ${i+1}.`);
     ingredientes.push({ingrediente,cantidad,unidad});
   }
+  const margen=Number(String(fd.get('margen_produccion_pct')||'0').replace(',','.'));
+  const merma=Number(String(fd.get('merma_pct')||'0').replace(',','.'));
   const id=await guardarReceta({
     id:Number(fd.get('id')||0)||undefined,
     plato:String(fd.get('plato')||''),
     porcionesBase:Number(fd.get('porciones_base')||0),
     preparacion:String(fd.get('preparacion')||''),
     activo:fd.get('activo')==='on',
+    margenProduccionPct:margen,
+    mermaPct:merma,
     ingredientes,
   },u.nombre||u.username);
   revalidatePath('/recetas');
+  revalidatePath('/cocina');
   redirect(`/recetas?receta=${id}&guardado=1`);
 }
