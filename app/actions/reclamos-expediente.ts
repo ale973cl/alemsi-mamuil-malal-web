@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth/session';
 import { agregarMovimientoReclamo, obtenerDetalleReclamo, puedeGestionarReclamo, type RolReclamo } from '@/lib/db/reclamos';
 import { notificarDerivacionReclamo, obtenerDestinoReclamo, obtenerRuteoReclamo } from '@/lib/reclamos-routing';
@@ -57,4 +58,8 @@ export async function movimientoReclamoAction(fd:FormData){
   revalidatePath('/cocina');
   revalidatePath('/reclamos-gestion');
   revalidatePath('/reclamos');
+
+  // Confirmación visible y verificable: vuelve al mismo expediente y muestra
+  // el resultado guardado; la trazabilidad recién persistida queda inmediatamente debajo.
+  redirect(`/reclamos-gestion?caso=${reclamoId}&guardado=${encodeURIComponent(accion)}`);
 }
