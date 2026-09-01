@@ -1,6 +1,6 @@
 import type { Rol } from '@/lib/auth/session';
 
-export type PortalRoute = '/admin-total'|'/admin-casino'|'/admin-casino/produccion'|'/finanzas'|'/coordinacion'|'/cocina'|'/recetas'|'/bodega'|'/operaciones'|'/gerencia'|'/reclamos-gestion';
+export type PortalRoute = '/admin-total'|'/admin-casino'|'/admin-casino/produccion'|'/finanzas'|'/valores-servicio'|'/coordinacion'|'/cocina'|'/recetas'|'/bodega'|'/operaciones'|'/gerencia'|'/reclamos-gestion';
 export type PortalModule = { href:PortalRoute; label:string };
 
 const MODULOS = {
@@ -8,6 +8,7 @@ const MODULOS = {
   administracion:{href:'/admin-casino',label:'Admin Casino'},
   produccionAdmin:{href:'/admin-casino/produccion',label:'Producción · Admin'},
   finanzas:{href:'/finanzas',label:'Finanzas'},
+  valores:{href:'/valores-servicio',label:'Valores del servicio'},
   coordinacion:{href:'/coordinacion',label:'Coordinación'},
   cocina:{href:'/cocina',label:'Cocina y Producción'},
   recetas:{href:'/recetas',label:'Recetas'},
@@ -20,12 +21,12 @@ const MODULOS = {
 export const ROLE_LABEL:Record<Rol,string>={AdminTotal:'Administrador Total',AdminCasino:'Administrador Casino',Finanzas:'Finanzas',Cocina:'Cocina',Coordinacion:'Coordinación',Gerencia:'Gerencia',Bodega:'Bodega',Operaciones:'Operaciones'};
 
 export const MODULES_BY_ROLE:Record<Rol,readonly PortalModule[]>={
-  AdminTotal:[MODULOS.adminTotal,MODULOS.administracion,MODULOS.produccionAdmin,MODULOS.finanzas,MODULOS.coordinacion,MODULOS.cocina,MODULOS.recetas,MODULOS.bodega,MODULOS.operaciones,MODULOS.gerencia,MODULOS.reclamos],
-  AdminCasino:[MODULOS.administracion,MODULOS.produccionAdmin,MODULOS.cocina,MODULOS.recetas,MODULOS.reclamos],
-  Finanzas:[MODULOS.finanzas,MODULOS.reclamos],
+  AdminTotal:[MODULOS.adminTotal,MODULOS.administracion,MODULOS.produccionAdmin,MODULOS.finanzas,MODULOS.valores,MODULOS.coordinacion,MODULOS.cocina,MODULOS.recetas,MODULOS.bodega,MODULOS.operaciones,MODULOS.gerencia,MODULOS.reclamos],
+  AdminCasino:[MODULOS.administracion,MODULOS.produccionAdmin,MODULOS.cocina,MODULOS.recetas,MODULOS.valores,MODULOS.reclamos],
+  Finanzas:[MODULOS.finanzas,MODULOS.valores,MODULOS.reclamos],
   Coordinacion:[MODULOS.coordinacion,MODULOS.reclamos],
   Cocina:[MODULOS.cocina,MODULOS.recetas,MODULOS.reclamos],
-  Gerencia:[MODULOS.gerencia,MODULOS.reclamos],
+  Gerencia:[MODULOS.gerencia,MODULOS.valores,MODULOS.reclamos],
   Bodega:[MODULOS.bodega],
   Operaciones:[MODULOS.operaciones],
 };
