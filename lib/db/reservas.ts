@@ -183,13 +183,9 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
   const precioPersona = await obtenerPrecioPersona(rut, institucion);
   const codigoPublico = await codigoReservaPublico();
   const referencia = codigoPublico;
-  const pagoToken = !esAlem && !esCoordinador ? crypto.randomBytes(32).toString('base64url') : '';
+  const pagoToken = !esAlem ? crypto.randomBytes(32).toString('base64url') : '';
   const ahora = new Date().toISOString();
-  const metodo = esAlem
-    ? 'Interno ALEMSI'
-    : esCoordinador
-      ? 'Costo asumido · Coordinadores'
-      : input.metodoPago || 'Transferencia bancaria';
+  const metodo = esAlem ? 'Interno ALEMSI' : input.metodoPago || 'Transferencia bancaria';
 
   const porFecha = new Map<string, EleccionReserva[]>();
   for (const item of input.elecciones) {
@@ -216,7 +212,7 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
       const posicion = lineasDia.findIndex((x) => x === item);
       const precios = distribuirPrecioDia(precioPersona.precio, lineasDia.length);
       const precioLinea = esAlem ? 0 : precios[Math.max(0, posicion)] ?? 0;
-      const estadoPago = esAlem ? 'No aplica' : esCoordinador ? 'Costo asumido' : 'Pendiente';
+      const estadoPago = esAlem ? 'No aplica' : 'Pendiente';
       const estadoConsumo = esAlem ? 'Consumirá' : 'Pendiente';
       const tipoRegistro = esAlem ? 'CONSUMO_INTERNO' : esCoordinador ? 'CONSUMO_COORDINADOR' : 'RESERVA_COMERCIAL';
       const voucher = esAlem ? null : codigoVoucher(rut, item.servicio, item.fecha);
