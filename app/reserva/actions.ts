@@ -10,12 +10,10 @@ import { setComensalSession } from '@/lib/auth/comensal-session';
 import {
   normalizarRutDb,
   normalizarRutVisible,
-  reservaComercialHabilitada,
-  reservaPasoHabilitada,
+  reservaInstitucionHabilitada,
   tipoInstitucion,
   validarRutM11,
   type EleccionReserva,
-  anticipacionParaInstitucion,
   fechaDentroVentanaMaxima,
 } from '@/lib/reglas/reserva';
 
@@ -58,7 +56,6 @@ export async function cargarMinutaDisponible(rutInput: string, inicio: string, f
   const reglas = await obtenerReglasReserva();
   const rows = await obtenerMinutasRango(inicio, fin);
   const tipo = tipoInstitucion(perfil.persona.institucion);
-  const anticipacion = anticipacionParaInstitucion(reglas,perfil.persona.institucion);
   const ahora = new Date();
   const filtradas = rows.filter((row) => {
     if(!fechaDentroVentanaMaxima(row.fecha,Number(reglas.ventana_maxima_dias),ahora)) return false;
@@ -66,9 +63,8 @@ export async function cargarMinutaDisponible(rutInput: string, inicio: string, f
     if (tipo === 'paso') {
       const tipoOpcion = String(row.tipo_opcion ?? '').trim().toUpperCase();
       if (!['OPCION 1', 'HIPOCALORICO'].includes(tipoOpcion)) return false;
-      if (!reservaPasoHabilitada(row.fecha,anticipacion,ahora)) return false;
     }
-    if ((tipo === 'comercial'||tipo==='administrativos') && !reservaComercialHabilitada(row.fecha,row.servicio,anticipacion,ahora,'America/Santiago',reglas.modalidad_cierre)) return false;
+    if (!reservaInstitucionHabilitada(row.fecha,perfil.persona.institucion,reglas,ahora)) return false;
     return true;
   });
   return { ok: true as const, rows: filtradas, reglas };
@@ -94,6 +90,7 @@ export async function confirmarReserva(input: { rut: string; elecciones: Eleccio
         total: result.total,
         method: input.metodoPago || (result.esAlem ? 'Interno ALEMSI' : 'Transferencia bancaria'),
         choices: input.elecciones,
+        institucion: persona?.institucion?.trim() || 'Visitas',
       };
       after(async () => {
         console.info('RESERVA_SMTP_START');
