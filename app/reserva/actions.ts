@@ -92,7 +92,7 @@ export async function confirmarReserva(input: { rut: string; elecciones: Eleccio
         origin: `${proto}://${host}`,
         rut: normalizarRutVisible(input.rut),
         total: result.total,
-        method: input.metodoPago || (result.esAlem ? 'Interno ALEMSI' : result.esCoordinador ? 'Costo asumido · Coordinadores' : 'Transferencia bancaria'),
+        method: input.metodoPago || (result.esAlem ? 'Interno ALEMSI' : 'Transferencia bancaria'),
         choices: input.elecciones,
       };
       after(async () => {
