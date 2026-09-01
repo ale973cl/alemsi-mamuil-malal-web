@@ -36,28 +36,35 @@ export async function guardarMinutasAction(rows: FilaMinutaInput[]) {const u=awa
 export async function autorizacionExternaAction(fd: FormData) {const u=await requireUser(['AdminCasino','AdminTotal']);await registrarAutorizacionExterna(String(fd.get('inicio')),String(fd.get('fin')),u.username,String(fd.get('observacion')||''));revalidatePath('/admin-casino');}
 export async function resolverSolicitudExtraordinariaAction(fd:FormData){const u=await requireUser(['AdminCasino','AdminTotal']);const decision=String(fd.get('decision')||'');if(decision!=='AUTORIZAR'&&decision!=='RECHAZAR') throw new Error('Decisión inválida.');await resolverSolicitudExtraordinaria({id:Number(fd.get('id')||0),decision,usuario:u.username,observacion:String(fd.get('observacion')||'')});revalidatePath('/admin-casino');revalidatePath('/mis-reservas');revalidatePath('/cocina');}
 
+// Gobierno de Reclamos: Gerencia define responsables, ruteo y permisos.
+// AdminTotal se conserva como respaldo técnico. AdminCasino administra la operación,
+// pero no puede ampliar ni modificar permisos de los demás perfiles.
 export async function guardarResponsableReclamoAction(fd:FormData){
-  const u=await requireUser(['AdminCasino','AdminTotal']);
+  const u=await requireUser(['Gerencia','AdminTotal']);
   await guardarResponsableReclamo({areaKey:String(fd.get('area_key')||''),responsable:String(fd.get('responsable')||''),correo:String(fd.get('correo')||''),activo:fd.get('activo')==='on'},u.username);
-  revalidatePath('/admin-casino'); revalidatePath('/reclamos-gestion');
+  revalidatePath('/admin-casino'); revalidatePath('/gerencia'); revalidatePath('/reclamos-gestion');
 }
 
 export async function guardarRuteoReclamosAction(fd:FormData){
-  const u=await requireUser(['AdminCasino','AdminTotal']);
+  const u=await requireUser(['Gerencia','AdminTotal']);
   const items=CATEGORIAS_RECLAMOS.map(categoria=>({categoriaKey:categoria.key,areaPrincipal:String(fd.get(`principal__${categoria.key}`)||'').trim()||null}));
   await guardarRuteoCategoriasReclamos(items,u.username);
-  revalidatePath('/admin-casino'); revalidatePath('/reclamos-gestion');
+  revalidatePath('/admin-casino'); revalidatePath('/gerencia'); revalidatePath('/reclamos-gestion');
 }
 
 export async function guardarMatrizReclamosAction(fd:FormData){
-  const u=await requireUser(['AdminCasino','AdminTotal']);
-  const permisos=CATEGORIAS_RECLAMOS.flatMap(categoria=>AREAS_RECLAMOS.map(area=>({
-    categoriaKey:categoria.key,
-    areaKey:area.key,
-    recibeCopia:fd.get(`copia__${categoria.key}__${area.key}`)==='on',
-    puedeVer:fd.get(`ver__${categoria.key}__${area.key}`)==='on',
-    puedeSolucionar:fd.get(`solucionar__${categoria.key}__${area.key}`)==='on',
-  })));
+  const u=await requireUser(['Gerencia','AdminTotal']);
+  const permisos=CATEGORIAS_RECLAMOS.flatMap(categoria=>AREAS_RECLAMOS.map(area=>{
+    const puedeSolucionar=fd.get(`solucionar__${categoria.key}__${area.key}`)==='on';
+    return {
+      categoriaKey:categoria.key,
+      areaKey:area.key,
+      recibeCopia:fd.get(`copia__${categoria.key}__${area.key}`)==='on',
+      // Regla de consistencia: nadie puede SOLUCIONAR un concepto que no puede VER.
+      puedeVer:puedeSolucionar||fd.get(`ver__${categoria.key}__${area.key}`)==='on',
+      puedeSolucionar,
+    };
+  }));
   await guardarPermisosReclamos(permisos,u.username);
-  revalidatePath('/admin-casino'); revalidatePath('/reclamos-gestion');
+  revalidatePath('/admin-casino'); revalidatePath('/gerencia'); revalidatePath('/reclamos-gestion');
 }
