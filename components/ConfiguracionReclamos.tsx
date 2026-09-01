@@ -1,18 +1,29 @@
 import { AREAS_RECLAMOS, CATEGORIAS_RECLAMOS, obtenerConfiguracionReclamos } from '@/lib/db/reclamos';
 import { guardarMatrizReclamosAction, guardarResponsableReclamoAction, guardarRuteoReclamosAction } from '@/app/admin-casino/actions';
+import GestionReclamoAcciones from '@/components/GestionReclamoAcciones';
 
 type Responsable={area_key:string;responsable:string;correo:string;activo:boolean};
 type Permiso={categoria_key:string;area_key:string;recibe_copia?:boolean;puede_ver:boolean;puede_solucionar:boolean};
 type CategoriaConfig={categoria_key:string;area_principal:string|null};
 
 export default async function ConfiguracionReclamos({responsables,permisos,categorias}:{responsables:Responsable[];permisos:Permiso[];categorias?:CategoriaConfig[]}){
+  // En Admin Casino este componente se invoca sin `categorias`: esa pantalla es
+  // operacional y debe permitir gestionar el expediente, no gobernar permisos.
+  // Gerencia/AdminTotal acceden a la configuración central desde /reclamos-gestion,
+  // donde sí se entregan las categorías explícitamente.
+  if(categorias===undefined){
+    return <div className="config-reclamos mt-5">
+      <style>{`section:has(> .config-reclamos){display:flex!important;flex-direction:column!important}section:has(> .config-reclamos)>h2,section:has(> .config-reclamos)>p{order:0!important}section:has(> .config-reclamos)>div.mt-5:not(.config-reclamos){order:10!important}section:has(> .config-reclamos)>.config-reclamos{order:20!important}`}</style>
+      <GestionReclamoAcciones/>
+    </div>;
+  }
+
   const categoriasActuales=categorias??(await obtenerConfiguracionReclamos()).categorias;
   const responsable=(key:string)=>responsables.find(item=>item.area_key===key);
   const permiso=(categoria:string,area:string)=>permisos.find(item=>item.categoria_key===categoria&&item.area_key===area);
   const principal=(categoria:string)=>categoriasActuales.find((item:any)=>item.categoria_key===categoria)?.area_principal||'';
   const summaryClass="cursor-pointer select-none list-none rounded-2xl border border-[#A6B0AA]/25 bg-[#FFFDF8] px-4 py-4 text-lg font-black text-[#0E2A23] marker:hidden";
   return <div className="config-reclamos mt-5 space-y-3">
-    <style>{`section:has(> .config-reclamos){display:flex!important;flex-direction:column!important}section:has(> .config-reclamos)>h2,section:has(> .config-reclamos)>p{order:0!important}section:has(> .config-reclamos)>div.mt-5:not(.config-reclamos){order:10!important}section:has(> .config-reclamos)>.config-reclamos{order:20!important}`}</style>
     <div className="mb-2"><h3 className="text-lg font-black">Configuración de Reclamos</h3><p className="text-sm text-[#6B7570]">Los datos ya registrados se muestran en modo compacto. Usa Editar solo cuando necesites modificarlos.</p></div>
 
     <details className="group rounded-2xl border border-[#A6B0AA]/20 bg-white">
