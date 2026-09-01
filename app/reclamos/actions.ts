@@ -72,7 +72,7 @@ export async function reclamoAction(fd:FormData){
         `Hola ${registro.nombre},`,perfil.apertura,`Folio de seguimiento: ${folio}`,`Fecha y hora: ${fechaHoraVisibleChile(new Date(registro.fecha))}`,`Tipo: ${registro.tipo}`,`Categoría: ${registro.categoria}`,'Estado: Pendiente de revisión',`Tu mensaje: ${registro.mensaje}`,
         tieneArchivo?`Antecedente recibido: ${file.name}`:'No se adjuntaron antecedentes en este ingreso.',perfil.seguimiento,detalleGestion,'ALEMSI · Casino Mamuil'
       ].join('\n\n');
-      await enviarCorreoSmtp({to:registro.correo,subject:`ALEMSI · ${perfil.asunto} · ${folio}`,text,html});
+      await enviarCorreoSmtp({to:registro.correo,subject:`ALEMSI · Reclamo · ${folio}`,text,html,thread:{key:`alemsi-reclamo-${registro.id}-comensal`,reply:false}});
     }catch(error){console.error('RECLAMO_SMTP_ERROR',error);}
   }
   redirect(`/reclamos?ok=1&folio=${encodeURIComponent(`R-${String(registro.id).padStart(6,'0')}`)}`);
