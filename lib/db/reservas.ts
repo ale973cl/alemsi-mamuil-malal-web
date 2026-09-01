@@ -5,14 +5,13 @@ import { obtenerComensal, obtenerPrecioPersona } from '@/lib/db/comensales';
 import { validarPlatoPublicado } from '@/lib/db/minutas';
 import {
   REGLAS_RESERVA_DEFAULT,
-  anticipacionParaInstitucion,
   fechaDentroVentanaMaxima,
   distribuirPrecioDia,
   limpiarRut,
   maxConsecutivosFechas,
   normalizarRutDb,
-  reservaComercialHabilitada,
-  reservaPasoHabilitada,
+  reservaInstitucionHabilitada,
+  horaCorteReservaParaInstitucion,
   tipoInstitucion,
   validarEleccionesPorDia,
   type EleccionReserva,
@@ -122,7 +121,7 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
   const esAlem = tipo === 'paso' || tipo === 'administrativos';
   const esCoordinador = tipo === 'coordinadores';
   const reglas = await obtenerReglasReserva();
-  const anticipacion=anticipacionParaInstitucion(reglas,institucion);
+  const horaCorte=horaCorteReservaParaInstitucion(reglas,institucion);
   const fechas = [...new Set(input.elecciones.map((item) => item.fecha))].sort();
 
   if (!fechas.length) throw new Error('No hay fechas seleccionadas.');
@@ -169,11 +168,8 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
   for (const item of input.elecciones) {
     if(!fechaDentroVentanaMaxima(item.fecha,Number(reglas.ventana_maxima_dias),ahoraValidacion)) throw new Error(`${item.fecha} está fuera de la ventana máxima de reserva.`);
     const exception = Number(reglas.excepciones_habilitadas) === 1 && (await excepcionReservaActiva(rut, item.fecha));
-    if (tipo==='paso' && !exception && !reservaPasoHabilitada(item.fecha,anticipacion,ahoraValidacion)) {
-      throw new Error(`ALEMSI Paso Fronterizo debe reservar con al menos ${anticipacion} horas de anticipación. La fecha ${item.fecha} ya está cerrada.`);
-    }
-    if (tipo!=='paso'&&!esCoordinador&&!exception && !reservaComercialHabilitada(item.fecha,item.servicio,anticipacion,ahoraValidacion,'America/Santiago',reglas.modalidad_cierre)) {
-      throw new Error(`${item.servicio} del ${item.fecha} está fuera del plazo de reserva.`);
+    if (!exception && !reservaInstitucionHabilitada(item.fecha,institucion,reglas,ahoraValidacion)) {
+      throw new Error(`La fecha ${item.fecha} ya está cerrada. El corte para ${institucion} es a las ${String(horaCorte).padStart(2,'0')}:00 del día anterior.`);
     }
     if (!(await validarPlatoPublicado(item))) {
       throw new Error(`El plato ${item.plato} ya no está disponible para ${item.fecha} · ${item.servicio}.`);
