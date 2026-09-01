@@ -36,6 +36,16 @@ export function areaKeyPorRol(rol:RolReclamo):string{
   return 'COCINA';
 }
 
+export async function contarReclamosPendientesAsignados(rol:RolReclamo){
+  const estadosFinales=['cerrado','resuelto'];
+  if(rol==='AdminTotal'){
+    const rows=await query<{cantidad:string}>(`SELECT COUNT(*)::text cantidad FROM reclamos_sugerencias WHERE LOWER(TRIM(COALESCE(estado,'')))<>ALL($1::text[])`,[estadosFinales]);
+    return Number(rows[0]?.cantidad||0);
+  }
+  const rows=await query<{cantidad:string}>(`SELECT COUNT(*)::text cantidad FROM reclamos_sugerencias WHERE LOWER(TRIM(COALESCE(estado,'')))<>ALL($1::text[]) AND COALESCE(area_actual,'AdminCasino')=$2`,[estadosFinales,rol]);
+  return Number(rows[0]?.cantidad||0);
+}
+
 export async function obtenerConfiguracionReclamos(){
   const [responsables,permisos,categorias]=await Promise.all([
     query<any>(`SELECT area_key,area_nombre,rol,responsable,correo,activo,actualizado_at,actualizado_por FROM reclamo_areas_responsables ORDER BY orden,area_nombre`),
