@@ -2,6 +2,7 @@ import 'server-only';
 import { query } from '@/lib/db/pool';
 import { enviarCorreoSmtp } from '@/lib/email/smtp';
 import { normalizarCategoriaReclamo } from '@/lib/db/reclamos';
+import { obtenerEnlaceConsultaReclamo } from '@/lib/reclamos-consulta';
 
 export type DestinoReclamo={area_key:string;area_nombre:string;rol:string;responsable:string;correo:string};
 
@@ -49,11 +50,14 @@ async function enviarUnicos(destinos:DestinoReclamo[],input:{subject:string;text
 
 export async function notificarIngresoReclamoInterno(input:{id:number;tipo:string;categoria:string;nombre:string;rut:string;mensaje:string;fecha:string}){
   const ruteo=await obtenerRuteoReclamo(input.categoria);
-  const destinos=[...(ruteo.principal?[ruteo.principal]:[]),...ruteo.copias];
+  const coordinacionRows=await query<DestinoReclamo>(`SELECT area_key,area_nombre,rol,responsable,correo FROM reclamo_areas_responsables WHERE area_key='COORDINACION' AND activo=TRUE LIMIT 1`);
+  const coordinacion=coordinacionRows[0]||null;
+  const destinos=[...(ruteo.principal?[ruteo.principal]:[]),...ruteo.copias,...(coordinacion?[coordinacion]:[])];
   if(!destinos.some(d=>String(d.correo||'').trim())) return {enviados:0,ruteo};
   const folio=`R-${String(input.id).padStart(6,'0')}`;
-  const text=[`Nuevo caso ${folio}`,`Tipo: ${input.tipo}`,`Categoría: ${input.categoria}`,`Comensal: ${input.nombre}`,`RUT: ${input.rut}`,`Mensaje: ${input.mensaje}`,'Ingrese al portal ALEMSI para revisar el expediente y su trazabilidad.'].join('\n\n');
-  const html=`<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;background:#f4f6f5;padding:24px;color:#14232d"><div style="max-width:680px;margin:auto;background:#fff;border:1px solid #d7e1dc;border-radius:12px;overflow:hidden"><div style="background:#0B2D5B;color:#fff;padding:18px 22px;font-weight:800">ALEMSI · Gestión de Reclamos</div><div style="padding:22px"><h2 style="margin:0 0 16px;color:#0B2D5B">Nuevo ${esc(input.tipo)} · ${esc(folio)}</h2><p><b>Categoría:</b> ${esc(input.categoria)}</p><p><b>Comensal:</b> ${esc(input.nombre)} · ${esc(input.rut)}</p><div style="margin-top:16px;padding:14px;background:#f7faf8;border:1px solid #d7e1dc;border-radius:8px"><b>Mensaje</b><br>${esc(input.mensaje)}</div><p style="margin-top:18px;font-size:13px;color:#5b6670">La distribución se resolvió automáticamente desde la configuración central de Reclamos.</p></div></div></body></html>`;
+  const enlace=await obtenerEnlaceConsultaReclamo(input.id);
+  const text=[`Nuevo caso ${folio}`,`Tipo: ${input.tipo}`,`Categoría: ${input.categoria}`,`Comensal: ${input.nombre}`,`RUT: ${input.rut}`,`Mensaje: ${input.mensaje}`,enlace?`Consulta segura del expediente: ${enlace}`:'','El enlace permite consultar únicamente este reclamo, en modo solo lectura, sin ingresar al portal ALEMSI.'].filter(Boolean).join('\n\n');
+  const html=`<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;background:#f4f6f5;padding:24px;color:#14232d"><div style="max-width:680px;margin:auto;background:#fff;border:1px solid #d7e1dc;border-radius:12px;overflow:hidden"><div style="background:#0B2D5B;color:#fff;padding:18px 22px;font-weight:800">ALEMSI · Gestión de Reclamos</div><div style="padding:22px"><h2 style="margin:0 0 16px;color:#0B2D5B">Nuevo ${esc(input.tipo)} · ${esc(folio)}</h2><p><b>Categoría:</b> ${esc(input.categoria)}</p><p><b>Comensal:</b> ${esc(input.nombre)} · ${esc(input.rut)}</p><div style="margin-top:16px;padding:14px;background:#f7faf8;border:1px solid #d7e1dc;border-radius:8px"><b>Mensaje</b><br>${esc(input.mensaje)}</div>${enlace?`<p style="margin-top:18px"><a href="${esc(enlace)}" style="display:inline-block;background:#0D9B91;color:#fff;text-decoration:none;padding:11px 16px;border-radius:8px;font-weight:800">Ver expediente del reclamo</a></p><p style="font-size:12px;color:#5b6670;word-break:break-all">${esc(enlace)}</p>`:''}<p style="margin-top:18px;font-size:13px;color:#5b6670">El enlace abre únicamente este expediente en modo de solo lectura. No entrega acceso al portal ALEMSI ni a otros reclamos.</p></div></div></body></html>`;
   return {enviados:await enviarUnicos(destinos,{subject:asuntoBase(input.id),text,html,threadKey:hiloInterno(input.id),reply:false}),ruteo};
 }
 
