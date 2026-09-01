@@ -1,0 +1,63 @@
+import Link from 'next/link';
+import AppShell from '@/components/AppShell';
+import { requireUser } from '@/lib/auth/session';
+import { listarRecetas } from '@/lib/db/recetas';
+import { guardarRecetaAction } from './actions';
+
+export const dynamic='force-dynamic';
+
+function numero(v:number){return new Intl.NumberFormat('es-CL',{maximumFractionDigits:3}).format(v);}
+
+export default async function Page({searchParams}:{searchParams:Promise<{receta?:string;personas?:string;nueva?:string;guardado?:string}>}){
+  const u=await requireUser(['Cocina','AdminCasino','AdminTotal']);
+  const q=await searchParams;
+  const puedeEditar=u.rol==='AdminCasino'||u.rol==='AdminTotal';
+  const recetas=await listarRecetas();
+  const activas=recetas.filter(r=>r.activo);
+  const idSolicitado=Number(q.receta||0);
+  const seleccion=recetas.find(r=>r.id===idSolicitado)||(puedeEditar?recetas[0]:activas[0])||null;
+  const personas=Math.max(1,Math.trunc(Number(q.personas||seleccion?.porciones_base||1))||1);
+  const factor=seleccion?personas/seleccion.porciones_base:1;
+  const nueva=puedeEditar&&q.nueva==='1';
+  const filas=nueva?[]:(seleccion?.ingredientes||[]);
+  const totalFilas=Math.max(10,Math.min(20,filas.length+3));
+
+  return <AppShell user={u}><div className="space-y-5">
+    <section className="flex flex-wrap items-end justify-between gap-3 rounded-2xl border bg-white p-5">
+      <div><p className="text-xs font-extrabold tracking-[.18em] text-[#1DB954]">RECETAS ESTÁNDAR</p><h1 className="text-2xl font-black text-[#0E2A23]">Producción por cantidad de comensales</h1><p className="mt-1 max-w-3xl text-sm text-[#6B7570]">Cada receta conserva una cantidad base de porciones. Cocina indica cuántas porciones producirá y el sistema recalcula proporcionalmente cada ingrediente, manteniendo la preparación estándar.</p></div>
+      <Link href="/cocina" className="rounded-xl border border-[#0D9B91] px-4 py-2 text-sm font-black text-[#0D9B91]">Volver a Cocina</Link>
+    </section>
+
+    {q.guardado==='1'&&<div className="rounded-xl border border-green-300 bg-green-50 p-4 font-bold text-green-800">Receta guardada correctamente.</div>}
+
+    <section className="rounded-2xl border bg-white p-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <form className="flex flex-wrap items-end gap-2">
+          <label className="text-sm font-bold">Plato<select name="receta" defaultValue={seleccion?.id||''} className="mt-1 block min-w-64 rounded-lg border bg-white p-2">{(puedeEditar?recetas:activas).map(r=><option key={r.id} value={r.id}>{r.plato}{!r.activo?' · Inactiva':''}</option>)}</select></label>
+          {!puedeEditar&&<label className="text-sm font-bold">Porciones a producir<input name="personas" type="number" min="1" defaultValue={personas} className="mt-1 block w-40 rounded-lg border p-2"/></label>}
+          <button className="rounded-lg bg-[#0E2A23] px-4 py-2 font-bold text-white">{puedeEditar?'Abrir receta':'Calcular cantidades'}</button>
+        </form>
+        {puedeEditar&&<Link href="/recetas?nueva=1" className="rounded-lg bg-[#1DB954] px-4 py-2 font-black text-[#071814]">Nueva receta</Link>}
+      </div>
+    </section>
+
+    {!puedeEditar&&seleccion&&<section className="rounded-2xl border bg-white p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black tracking-[.14em] text-[#0D9B91]">RECETA DE PRODUCCIÓN</p><h2 className="text-2xl font-black">{seleccion.plato}</h2><p className="mt-1 text-sm text-[#6B7570]">Base estándar: {seleccion.porciones_base} porciones · Producción solicitada: <b>{personas} porciones</b> · Factor {numero(factor)}</p></div></div>
+      <div className="mt-5 overflow-x-auto"><table className="w-full min-w-[620px] border-collapse text-sm"><thead><tr className="bg-[#F6F3EA] text-left"><th className="p-3">Ingrediente</th><th className="p-3">Cantidad base</th><th className="p-3">Cantidad para {personas}</th><th className="p-3">Unidad</th></tr></thead><tbody>{seleccion.ingredientes.map(i=><tr key={i.id||`${i.ingrediente}-${i.orden}`} className="border-b"><td className="p-3 font-bold">{i.ingrediente}</td><td className="p-3">{numero(i.cantidad)}</td><td className="p-3 text-lg font-black text-[#0D9B91]">{numero(i.cantidad*factor)}</td><td className="p-3">{i.unidad||'—'}</td></tr>)}</tbody></table></div>
+      <div className="mt-5 rounded-xl bg-[#F7FAF8] p-4"><h3 className="font-black">Preparación estándar</h3><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[#35443E]">{seleccion.preparacion}</p></div>
+    </section>}
+
+    {!puedeEditar&&!seleccion&&<div className="rounded-2xl bg-[#F6F3EA] p-5 text-sm font-bold">Todavía no existen recetas activas cargadas por Administración de Casino.</div>}
+
+    {puedeEditar&&<section className="rounded-2xl border bg-white p-5">
+      <div><p className="text-xs font-extrabold tracking-[.16em] text-[#1DB954]">ADMINISTRACIÓN DE RECETAS</p><h2 className="text-xl font-black">{nueva?'Crear receta estándar':seleccion?`Editar · ${seleccion.plato}`:'Crear primera receta'}</h2><p className="mt-1 text-sm text-[#6B7570]">La cantidad ingresada corresponde a la receta base. Cocina no modifica estos valores: solo indica las porciones a producir.</p></div>
+      <form action={guardarRecetaAction} className="mt-5 space-y-5">
+        {!nueva&&seleccion&&<input type="hidden" name="id" value={seleccion.id}/>} 
+        <div className="grid gap-3 md:grid-cols-[2fr_1fr_auto]"><label className="text-sm font-bold">Nombre del plato<input name="plato" required defaultValue={nueva?'':seleccion?.plato||''} className="mt-1 block w-full rounded-lg border p-2"/></label><label className="text-sm font-bold">Porciones base<input name="porciones_base" type="number" min="1" required defaultValue={nueva?4:seleccion?.porciones_base||4} className="mt-1 block w-full rounded-lg border p-2"/></label><label className="flex items-end gap-2 pb-2 text-sm font-bold"><input type="checkbox" name="activo" defaultChecked={nueva?true:Boolean(seleccion?.activo)}/> Activa</label></div>
+        <label className="block text-sm font-bold">Preparación / instrucciones<textarea name="preparacion" required rows={7} defaultValue={nueva?'':seleccion?.preparacion||''} placeholder="Describe cómo preparar el plato, orden de incorporación, cocción, tiempos y criterios de terminación." className="mt-1 block w-full rounded-lg border p-3"/></label>
+        <div><h3 className="font-black">Ingredientes y cantidad base</h3><p className="text-sm text-[#6B7570]">Completa solo las filas necesarias. La unidad es libre: g, kg, ml, L, unidad, cucharada, etc.</p><div className="mt-3 space-y-2">{Array.from({length:totalFilas},(_,index)=>{const actual=filas[index];return <div key={index} className="grid gap-2 sm:grid-cols-[2fr_1fr_1fr]"><input name={`ingrediente_${index}`} defaultValue={actual?.ingrediente||''} placeholder={`Ingrediente ${index+1}`} className="rounded-lg border p-2"/><input name={`cantidad_${index}`} type="number" min="0" step="0.001" defaultValue={actual?.cantidad??''} placeholder="Cantidad" className="rounded-lg border p-2"/><input name={`unidad_${index}`} defaultValue={actual?.unidad||''} placeholder="Unidad" className="rounded-lg border p-2"/></div>})}</div></div>
+        <button className="rounded-xl bg-[#1DB954] px-5 py-3 font-black text-[#071814]">Guardar receta estándar</button>
+      </form>
+    </section>}
+  </div></AppShell>;
+}
