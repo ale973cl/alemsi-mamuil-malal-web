@@ -11,7 +11,8 @@ export default async function ConfiguracionReclamos({responsables,permisos,categ
   const permiso=(categoria:string,area:string)=>permisos.find(item=>item.categoria_key===categoria&&item.area_key===area);
   const principal=(categoria:string)=>categoriasActuales.find((item:any)=>item.categoria_key===categoria)?.area_principal||'';
   const summaryClass="cursor-pointer select-none list-none rounded-2xl border border-[#A6B0AA]/25 bg-[#FFFDF8] px-4 py-4 text-lg font-black text-[#0E2A23] marker:hidden";
-  return <div className="mt-5 space-y-3">
+  return <div className="config-reclamos mt-5 space-y-3">
+    <style>{`section:has(> .config-reclamos){display:flex;flex-direction:column}section:has(> .config-reclamos)>.config-reclamos{order:20}section:has(> .config-reclamos)>div.mt-5{order:10}`}</style>
     <div className="mb-2"><h3 className="text-lg font-black">Configuración de Reclamos</h3><p className="text-sm text-[#6B7570]">Estos paneles permanecen cerrados para priorizar la bandeja operacional. Ábrelos solo cuando necesites modificar responsables, ruteo o permisos.</p></div>
 
     <details className="group rounded-2xl border border-[#A6B0AA]/20 bg-white">
