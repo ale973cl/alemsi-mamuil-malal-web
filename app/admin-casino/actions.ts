@@ -14,6 +14,7 @@ import { resolverSolicitudExtraordinaria } from '@/lib/db/solicitudes-extraordin
 import { AREAS_RECLAMOS, CATEGORIAS_RECLAMOS, guardarPermisosReclamos, guardarResponsableReclamo, guardarRuteoCategoriasReclamos } from '@/lib/db/reclamos';
 import type { FilaMinutaInput } from '@/lib/reglas/minutas';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 
 export async function reglasAction(fd: FormData) {
   const u = await requireUser(['AdminCasino', 'AdminTotal']);
@@ -41,8 +42,10 @@ export async function resolverSolicitudExtraordinariaAction(fd:FormData){const u
 // pero no puede ampliar ni modificar permisos de los demás perfiles.
 export async function guardarResponsableReclamoAction(fd:FormData){
   const u=await requireUser(['Gerencia','AdminTotal']);
-  await guardarResponsableReclamo({areaKey:String(fd.get('area_key')||''),responsable:String(fd.get('responsable')||''),correo:String(fd.get('correo')||''),activo:fd.get('activo')==='on'},u.username);
+  const areaKey=String(fd.get('area_key')||'');
+  await guardarResponsableReclamo({areaKey,responsable:String(fd.get('responsable')||''),correo:String(fd.get('correo')||''),activo:fd.get('activo')==='on'},u.username);
   revalidatePath('/admin-casino'); revalidatePath('/gerencia'); revalidatePath('/reclamos-gestion');
+  redirect(`/reclamos-gestion?guardado=responsable&detalle=${encodeURIComponent(areaKey)}#configuracion`);
 }
 
 export async function guardarRuteoReclamosAction(fd:FormData){
@@ -50,6 +53,7 @@ export async function guardarRuteoReclamosAction(fd:FormData){
   const items=CATEGORIAS_RECLAMOS.map(categoria=>({categoriaKey:categoria.key,areaPrincipal:String(fd.get(`principal__${categoria.key}`)||'').trim()||null}));
   await guardarRuteoCategoriasReclamos(items,u.username);
   revalidatePath('/admin-casino'); revalidatePath('/gerencia'); revalidatePath('/reclamos-gestion');
+  redirect('/reclamos-gestion?guardado=ruteo#configuracion');
 }
 
 export async function guardarMatrizReclamosAction(fd:FormData){
@@ -60,11 +64,11 @@ export async function guardarMatrizReclamosAction(fd:FormData){
       categoriaKey:categoria.key,
       areaKey:area.key,
       recibeCopia:fd.get(`copia__${categoria.key}__${area.key}`)==='on',
-      // Regla de consistencia: nadie puede SOLUCIONAR un concepto que no puede VER.
       puedeVer:puedeSolucionar||fd.get(`ver__${categoria.key}__${area.key}`)==='on',
       puedeSolucionar,
     };
   }));
   await guardarPermisosReclamos(permisos,u.username);
   revalidatePath('/admin-casino'); revalidatePath('/gerencia'); revalidatePath('/reclamos-gestion');
+  redirect('/reclamos-gestion?guardado=matriz#configuracion');
 }
