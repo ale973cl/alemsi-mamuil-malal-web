@@ -7,6 +7,13 @@ import { agregarMovimientoReclamo, obtenerDetalleReclamo, puedeGestionarReclamo,
 import { notificarActualizacionReclamo, notificarDerivacionReclamo, obtenerDestinoReclamo, obtenerDestinoReclamoActual, obtenerRuteoReclamo } from '@/lib/reclamos-routing';
 
 const ROLES:RolReclamo[]=['AdminCasino','AdminTotal','Coordinacion','Gerencia','Finanzas','Cocina'];
+const ESTADO_POR_ACCION:Record<string,string>={
+  SEGUIMIENTO:'En gestión',
+  DERIVAR:'Derivado',
+  RESPONDER:'Resuelto',
+  SOLICITAR_ANTECEDENTES:'Pendiente',
+  CERRAR:'Cerrado',
+};
 
 async function archivoDesdeForm(fd:FormData){
   const file=fd.get('archivo');
@@ -17,21 +24,32 @@ async function archivoDesdeForm(fd:FormData){
   return {nombre:file.name||'antecedente',mime:file.type,bytes:new Uint8Array(await file.arrayBuffer())};
 }
 
+function retornoSeguro(valor:string,reclamoId:number,accion:string){
+  const base=valor.startsWith('/admin-casino')||valor.startsWith('/reclamos-gestion')
+    ? valor
+    : `/reclamos-gestion?caso=${reclamoId}`;
+  const separador=base.includes('?')?'&':'?';
+  return `${base}${separador}guardado=${encodeURIComponent(accion)}`;
+}
+
 export async function movimientoReclamoAction(fd:FormData){
   const u=await requireUser(ROLES);
   const rol=u.rol as RolReclamo;
   const reclamoId=Number(fd.get('reclamo_id')||0);
   const accion=String(fd.get('accion')||'ACTUALIZAR').trim();
-  const destinoArea=String(fd.get('destino_area')||'').trim();
+  const destinoArea=accion==='DERIVAR'?String(fd.get('destino_area')||'').trim():'';
   const mensaje=String(fd.get('mensaje')||'').trim();
-  const estado=String(fd.get('estado')||'').trim()||undefined;
+  const estado=ESTADO_POR_ACCION[accion]||String(fd.get('estado')||'').trim()||undefined;
+  const retorno=String(fd.get('retorno')||'').trim();
   if(!reclamoId) throw new Error('Reclamo inválido.');
   if(!mensaje&&accion!=='CERRAR') throw new Error('Indica la acción, respuesta o antecedente.');
+  if(accion==='DERIVAR'&&!destinoArea) throw new Error('Selecciona el área de destino para derivar.');
   if(!(await puedeGestionarReclamo(reclamoId,rol))) throw new Error('Tu perfil no tiene permiso para gestionar este reclamo.');
 
   const caso=await obtenerDetalleReclamo(reclamoId);
   if(!caso) throw new Error('Reclamo no encontrado.');
   const destino=destinoArea?await obtenerDestinoReclamo(destinoArea):null;
+  if(accion==='DERIVAR'&&!destino) throw new Error('El área seleccionada no tiene un responsable activo configurado.');
   const ruteo=await obtenerRuteoReclamo(String(caso.categoria||''));
 
   await agregarMovimientoReclamo({
@@ -62,5 +80,5 @@ export async function movimientoReclamoAction(fd:FormData){
   revalidatePath('/reclamos-gestion');
   revalidatePath('/reclamos');
 
-  redirect(`/reclamos-gestion?caso=${reclamoId}&guardado=${encodeURIComponent(accion)}`);
+  redirect(retornoSeguro(retorno,reclamoId,accion));
 }
