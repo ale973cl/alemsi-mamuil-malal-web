@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth/session';
 import { agregarMovimientoReclamo, obtenerDetalleReclamo, puedeGestionarReclamo, type RolReclamo } from '@/lib/db/reclamos';
-import { notificarDerivacionReclamo, obtenerDestinoReclamo, obtenerRuteoReclamo } from '@/lib/reclamos-routing';
+import { notificarActualizacionReclamo, notificarDerivacionReclamo, obtenerDestinoReclamo, obtenerDestinoReclamoActual, obtenerRuteoReclamo } from '@/lib/reclamos-routing';
 
 const ROLES:RolReclamo[]=['AdminCasino','AdminTotal','Coordinacion','Gerencia','Finanzas','Cocina'];
 
@@ -32,6 +32,7 @@ export async function movimientoReclamoAction(fd:FormData){
   const caso=await obtenerDetalleReclamo(reclamoId);
   if(!caso) throw new Error('Reclamo no encontrado.');
   const destino=destinoArea?await obtenerDestinoReclamo(destinoArea):null;
+  const ruteo=await obtenerRuteoReclamo(String(caso.categoria||''));
 
   await agregarMovimientoReclamo({
     reclamoId,
@@ -44,12 +45,14 @@ export async function movimientoReclamoAction(fd:FormData){
     archivo:await archivoDesdeForm(fd),
   });
 
-  if(destino){
-    try{
-      const ruteo=await obtenerRuteoReclamo(String(caso.categoria||''));
+  try{
+    if(destino){
       await notificarDerivacionReclamo({destino,copias:ruteo.copias,reclamoId,actor:u.nombre||u.username,mensaje,estado});
-    }catch(error){console.error('RECLAMO_DERIVACION_SMTP_ERROR',{reclamoId,area:destino.area_key,error});}
-  }
+    }else{
+      const responsableActual=await obtenerDestinoReclamoActual(String(caso.area_actual||''));
+      await notificarActualizacionReclamo({destino:responsableActual,copias:ruteo.copias,reclamoId,actor:u.nombre||u.username,accion,mensaje,estado});
+    }
+  }catch(error){console.error('RECLAMO_ACTUALIZACION_SMTP_ERROR',{reclamoId,accion,error});}
 
   revalidatePath('/admin-casino');
   revalidatePath('/coordinacion');
@@ -59,7 +62,5 @@ export async function movimientoReclamoAction(fd:FormData){
   revalidatePath('/reclamos-gestion');
   revalidatePath('/reclamos');
 
-  // Confirmación visible y verificable: vuelve al mismo expediente y muestra
-  // el resultado guardado; la trazabilidad recién persistida queda inmediatamente debajo.
   redirect(`/reclamos-gestion?caso=${reclamoId}&guardado=${encodeURIComponent(accion)}`);
 }
