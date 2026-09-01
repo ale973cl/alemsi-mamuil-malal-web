@@ -6,6 +6,18 @@ import { guardarRecetaAction } from './actions';
 
 export const dynamic='force-dynamic';
 
+const UNIDADES_COCINA=[
+  {value:'g',label:'g · gramos'},
+  {value:'kg',label:'kg · kilogramos'},
+  {value:'ml',label:'ml · mililitros'},
+  {value:'L',label:'L · litros'},
+  {value:'un',label:'un · unidad'},
+  {value:'porción',label:'porción'},
+  {value:'cucharadita',label:'cucharadita'},
+  {value:'cucharada',label:'cucharada'},
+  {value:'taza',label:'taza'},
+] as const;
+
 function numero(v:number){return new Intl.NumberFormat('es-CL',{maximumFractionDigits:3}).format(v);}
 
 export default async function Page({searchParams}:{searchParams:Promise<{receta?:string;plato?:string;personas?:string;nueva?:string;guardado?:string}>}){
@@ -59,7 +71,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{receta?
         {!nueva&&seleccion&&<input type="hidden" name="id" value={seleccion.id}/>} 
         <div className="grid gap-3 md:grid-cols-[2fr_1fr_auto]"><label className="text-sm font-bold">Nombre del plato<input name="plato" required readOnly={Boolean(platoSolicitado)} defaultValue={nueva?platoBase:seleccion?.plato||platoBase} className="mt-1 block w-full rounded-lg border p-2 read-only:bg-[#F6F3EA]"/></label><label className="text-sm font-bold">Porciones base<input name="porciones_base" type="number" min="1" required defaultValue={nueva?4:seleccion?.porciones_base||4} className="mt-1 block w-full rounded-lg border p-2"/></label><label className="flex items-end gap-2 pb-2 text-sm font-bold"><input type="checkbox" name="activo" defaultChecked={nueva?true:Boolean(seleccion?.activo)}/> Activa</label></div>
         <label className="block text-sm font-bold">Preparación / instrucciones<textarea name="preparacion" required rows={7} defaultValue={nueva?'':seleccion?.preparacion||''} placeholder="Describe cómo preparar el plato, orden de incorporación, cocción, tiempos y criterios de terminación." className="mt-1 block w-full rounded-lg border p-3"/></label>
-        <div><h3 className="font-black">Ingredientes y cantidad base</h3><p className="text-sm text-[#6B7570]">Completa solo las filas necesarias. La unidad es libre: g, kg, ml, L, unidad, cucharada, etc.</p><div className="mt-3 space-y-2">{Array.from({length:totalFilas},(_,index)=>{const actual=filas[index];return <div key={index} className="grid gap-2 sm:grid-cols-[2fr_1fr_1fr]"><input name={`ingrediente_${index}`} defaultValue={actual?.ingrediente||''} placeholder={`Ingrediente ${index+1}`} className="rounded-lg border p-2"/><input name={`cantidad_${index}`} type="number" min="0" step="0.001" defaultValue={actual?.cantidad??''} placeholder="Cantidad" className="rounded-lg border p-2"/><input name={`unidad_${index}`} defaultValue={actual?.unidad||''} placeholder="Unidad" className="rounded-lg border p-2"/></div>})}</div></div>
+        <div><h3 className="font-black">Ingredientes y cantidad base</h3><p className="text-sm text-[#6B7570]">Completa solo las filas necesarias. La unidad se selecciona desde medidas estandarizadas de cocina para mantener consistencia en recetas y cálculos.</p><div className="mt-3 space-y-2">{Array.from({length:totalFilas},(_,index)=>{const actual=filas[index];const unidadActual=String(actual?.unidad||'');const unidadEsConocida=UNIDADES_COCINA.some(u=>u.value===unidadActual);return <div key={index} className="grid gap-2 sm:grid-cols-[2fr_1fr_1fr]"><input name={`ingrediente_${index}`} defaultValue={actual?.ingrediente||''} placeholder={`Ingrediente ${index+1}`} className="rounded-lg border p-2"/><input name={`cantidad_${index}`} type="number" min="0" step="0.001" defaultValue={actual?.cantidad??''} placeholder="Cantidad" className="rounded-lg border p-2"/><select name={`unidad_${index}`} defaultValue={unidadEsConocida?unidadActual:''} className="rounded-lg border bg-white p-2"><option value="">Unidad</option>{UNIDADES_COCINA.map(unidad=><option key={unidad.value} value={unidad.value}>{unidad.label}</option>)}</select></div>})}</div></div>
         <button className="rounded-xl bg-[#1DB954] px-5 py-3 font-black text-[#071814]">Guardar en maestro de platos</button>
       </form>
     </section>}
