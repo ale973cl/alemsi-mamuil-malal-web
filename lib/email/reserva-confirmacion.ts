@@ -60,8 +60,8 @@ export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmaci
   const [bancaria,reglas,headerInline,alemzinInline]=await Promise.all([
     obtenerConfiguracionBancariaActiva(),
     obtenerReglasReserva(),
-    assetInline('header',headerFilename,'cabecera-reserva'),
-    assetInline('septiembre','alemzin-chef-email.png','alemzin-chef-reserva'),
+    assetInline('header',headerFilename,'cabecera-reserva@alemsi'),
+    assetInline('septiembre','alemzin-chef-email.png','alemzin-chef-reserva@alemsi'),
   ]);
   const institucion=String(input.institucion||'Visitas').trim()||'Visitas';
   const horaCorte=horaCorteReservaParaInstitucion(reglas,institucion);
@@ -81,7 +81,7 @@ export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmaci
   ].join(''):'';
 
   const html=correoHtmlEstandar('Reserva confirmada',`
-    ${headerInline?'<div style="margin:0 0 18px;text-align:center"><img src="cid:cabecera-reserva" alt="ALEMSI · Casino Mamuil · Servicio de Alimentación" width="640" style="display:block;width:100%;max-width:640px;height:auto;border:0;border-radius:12px"/></div>':''}
+    ${headerInline?'<div style="margin:0;text-align:center"><img src="cid:cabecera-reserva@alemsi" alt="ALEMSI · Casino Mamuil · Servicio de Alimentación" width="680" style="display:block;width:100%;max-width:680px;height:auto;border:0"/></div>':''}
     ${input.nombre?`<p style="margin:0 0 12px;font-size:14px;color:#42515a">Hola <b>${escCorreo(input.nombre)}</b>,</p>`:''}
     <p style="margin:0 0 16px;font-size:14px;line-height:1.55;color:#42515a">Tu reserva fue registrada correctamente.</p>
     <table role="presentation" width="100%" style="border-collapse:collapse;background:#f7faf8;border:1px solid #d7e1dc">
@@ -95,7 +95,7 @@ export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmaci
     ${link?`<div style="margin-top:22px;text-align:center"><a href="${escCorreo(link)}" style="display:inline-block;background:#0D9B91;color:#fff;text-decoration:none;font-weight:800;padding:12px 18px;border-radius:8px">Subir comprobante de pago</a></div>`:''}
     <div style="margin-top:18px;padding:13px 15px;background:#f7faf8;border:1px solid #d7e1dc;color:#24434a;font-size:13px;line-height:1.55"><b>Reglas de reserva</b><br/>• ${escCorreo(reglaCorte)}<br/>• El corte es por día y no depende de la hora del servicio.</div>
     <div style="margin-top:12px;padding:13px 15px;background:#eef7f6;border-left:4px solid #0D9B91;color:#24434a;font-size:13px;line-height:1.45"><b>Importante:</b> conserva este correo y el código de reserva como respaldo. El PDF adjunto contiene el detalle de la reserva.</div>
-    ${alemzinInline?'<div style="margin-top:20px;text-align:center"><img src="cid:alemzin-chef-reserva" alt="Alemzín Chef · ALEMSI" width="180" style="display:inline-block;width:180px;max-width:65%;height:auto;border:0"/><div style="margin-top:6px;font-size:13px;font-weight:800;color:#0D9B91">¡Buen provecho!</div></div>':''}
+    ${alemzinInline?'<div style="margin-top:20px;text-align:center"><img src="cid:alemzin-chef-reserva@alemsi" alt="Alemzín Chef · ALEMSI" width="180" style="display:inline-block;width:180px;max-width:65%;height:auto;border:0"/><div style="margin-top:6px;font-size:13px;font-weight:800;color:#0D9B91">¡Buen provecho!</div></div>':''}
   `);
 
   const bankText=bancaria?[
