@@ -15,7 +15,8 @@ async function leerPng(...partes:string[]){
 
 function limpiarCabecerasLegadas(html:string){
   return html
-    .replace(/<tr><td style="background:#0B2D5B[^\"]*"[^>]*><div[^>]*>ALEMSI · CASINO MAMUIL<\/div><div[^>]*>SEPTIEMBRE · FIESTAS PATRIAS<\/div><\/td><\/tr>/gi,'')
+    .replace(/<tr><td style="padding:0[^\"]*"[^>]*><img src="[^"]*" alt="ALEMSI Casino[^"]*"[^>]*><\/td><\/tr>/gi,'')
+    .replace(/<tr><td style="background:#0B2D5B[^\"]*"[^>]*><div[^>]*>ALEMSI · CASINO MAMUIL<\/div><div[^>]*>(?:SEPTIEMBRE · FIESTAS PATRIAS|SERVICIO DE ALIMENTACIÓN|ATENCIÓN AL COMENSAL)<\/div><\/td><\/tr>/gi,'')
     .replace(/<div style="background:#0B2D5B[^\"]*"[^>]*>ALEMSI · (?:Gestión de Reclamos|Atención al Comensal)<\/div>/gi,'')
     .replace(/<div style="font-size:14px;font-weight:800;color:#087A46;margin-bottom:18px">¡Feliz Mes de la Patria! ALEMSI te desea unas felices Fiestas Patrias\.<\/div>/gi,'');
 }
