@@ -75,7 +75,7 @@ export async function saveReservation(input:{rut:string;choices:ReservationChoic
       }
     }
     let paymentToken="";
-    if(!isAlem&&!coordinator){ paymentToken=crypto.randomBytes(32).toString("base64url"); await client.query(`UPDATE solicitudes SET pago_token=$1 WHERE referencia_reserva=$2`,[paymentToken,ref]); }
+    if(!isAlem&&!coordinator&&/transfer/i.test(method)){ paymentToken=crypto.randomBytes(32).toString("base64url"); await client.query(`UPDATE solicitudes SET pago_token=$1 WHERE referencia_reserva=$2`,[paymentToken,ref]); }
     await client.query("COMMIT");
     return {reference:ref,code:publicCode,total:isAlem?0:dates.length*price.price,paymentToken,isAlem,coordinator,email:String(person.correo||"")};
   }catch(e){ await client.query("ROLLBACK"); throw e; }finally{ client.release(); }
