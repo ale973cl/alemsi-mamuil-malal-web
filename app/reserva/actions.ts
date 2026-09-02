@@ -70,7 +70,7 @@ export async function cargarMinutaDisponible(rutInput: string, inicio: string, f
   return { ok: true as const, rows: filtradas, reglas };
 }
 
-export async function confirmarReserva(input: { rut: string; elecciones: EleccionReserva[]; metodoPago?: 'Transferencia bancaria' | 'Débito en la instalación'; }) {
+export async function confirmarReserva(input: { rut: string; elecciones: EleccionReserva[]; metodoPago?: 'Transferencia bancaria' | 'Débito / pago con QR en la instalación'; }) {
   try {
     const result = await crearOActualizarReserva(input);
     const persona = await obtenerComensal(input.rut);
