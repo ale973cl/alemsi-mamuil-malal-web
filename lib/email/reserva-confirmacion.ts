@@ -41,9 +41,14 @@ function fila(label:string,value:string){
   return `<tr><td style="padding:7px 9px;color:#5b6670;width:38%">${escCorreo(label)}</td><td style="padding:7px 9px;font-weight:700;color:#0B2D5B">${escCorreo(value)}</td></tr>`;
 }
 
-async function assetInline(filename:string,cid:string):Promise<SmtpAttachment|undefined>{
+function esSeptiembreEnChile(fecha=new Date()){
+  const mes=new Intl.DateTimeFormat('en-US',{timeZone:'America/Santiago',month:'numeric'}).format(fecha);
+  return Number(mes)===9;
+}
+
+async function assetInline(carpeta:string,filename:string,cid:string):Promise<SmtpAttachment|undefined>{
   try{
-    const content=await readFile(path.join(process.cwd(),'public','email','septiembre',filename));
+    const content=await readFile(path.join(process.cwd(),'public','email',carpeta,filename));
     return{filename,contentType:'image/png',content,cid,disposition:'inline'};
   }catch{
     return undefined;
@@ -51,11 +56,12 @@ async function assetInline(filename:string,cid:string):Promise<SmtpAttachment|un
 }
 
 export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmacionInput):Promise<SmtpDelivery>{
-  const [bancaria,reglas,logoInline,alemzinInline]=await Promise.all([
+  const headerFilename=esSeptiembreEnChile()?'cabecera-septiembre.png':'cabecera-institucional.png';
+  const [bancaria,reglas,headerInline,alemzinInline]=await Promise.all([
     obtenerConfiguracionBancariaActiva(),
     obtenerReglasReserva(),
-    assetInline('alemsi-logo-email.png','alemsi-logo-reserva'),
-    assetInline('alemzin-chef-email.png','alemzin-chef-reserva'),
+    assetInline('header',headerFilename,'cabecera-reserva'),
+    assetInline('septiembre','alemzin-chef-email.png','alemzin-chef-reserva'),
   ]);
   const institucion=String(input.institucion||'Visitas').trim()||'Visitas';
   const horaCorte=horaCorteReservaParaInstitucion(reglas,institucion);
@@ -75,7 +81,7 @@ export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmaci
   ].join(''):'';
 
   const html=correoHtmlEstandar('Reserva confirmada',`
-    ${logoInline?'<div style="margin:0 0 18px;text-align:center"><img src="cid:alemsi-logo-reserva" alt="ALEMSI" width="260" style="display:inline-block;width:260px;max-width:82%;height:auto;border:0"/></div>':''}
+    ${headerInline?'<div style="margin:0 0 18px;text-align:center"><img src="cid:cabecera-reserva" alt="ALEMSI · Casino Mamuil · Servicio de Alimentación" width="640" style="display:block;width:100%;max-width:640px;height:auto;border:0;border-radius:12px"/></div>':''}
     ${input.nombre?`<p style="margin:0 0 12px;font-size:14px;color:#42515a">Hola <b>${escCorreo(input.nombre)}</b>,</p>`:''}
     <p style="margin:0 0 16px;font-size:14px;line-height:1.55;color:#42515a">Tu reserva fue registrada correctamente.</p>
     <table role="presentation" width="100%" style="border-collapse:collapse;background:#f7faf8;border:1px solid #d7e1dc">
@@ -118,7 +124,7 @@ export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmaci
   const pdf=await generarReservaPdf({codigo:input.codigo,rut:input.rut,total:input.total,choices:input.choices});
   const attachments:SmtpAttachment[]=[
     {filename:`Reserva-${input.codigo}.pdf`,contentType:'application/pdf',content:pdf},
-    ...(logoInline?[logoInline]:[]),
+    ...(headerInline?[headerInline]:[]),
     ...(alemzinInline?[alemzinInline]:[]),
   ];
   return enviarCorreoSmtp({
