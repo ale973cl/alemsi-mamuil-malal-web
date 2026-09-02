@@ -3,6 +3,7 @@ import { getComensalSession } from '@/lib/auth/comensal-session';
 import { listarMisReclamos } from '@/lib/db/reclamos';
 import ComensalNav from '@/components/ComensalNav';
 import ReclamoSubmitButton from '@/components/ReclamoSubmitButton';
+import CorreoSpamAviso from '@/components/CorreoSpamAviso';
 import { fechaVisible } from '@/lib/fecha-hora';
 
 export const dynamic='force-dynamic';
@@ -15,7 +16,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{ok?:str
       <section className="rounded-2xl border bg-white p-6">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-extrabold tracking-[.18em] text-[#1DB954]">ALEMSI</p><h1 className="text-2xl font-black">Reclamos, sugerencias y felicitaciones</h1></div><ComensalNav backHref="/reserva"/></div>
         {session&&<div className="rounded-xl bg-[#1DB954]/10 p-3 text-sm"><b>Sesión de comensal activa.</b> RUT {session.rut}. No necesitas ingresarlo nuevamente.</div>}
-        {q.ok&&<div className="mt-4 rounded-xl bg-[#1DB954]/10 p-3 font-bold">Mensaje registrado correctamente{q.folio?` · Folio ${q.folio}`:''}. Enviamos una copia a tu correo para seguimiento.</div>}
+        {q.ok&&<div className="mt-4 space-y-3"><div className="rounded-xl bg-[#1DB954]/10 p-3 font-bold">Mensaje registrado correctamente{q.folio?` · Folio ${q.folio}`:''}. Enviamos una copia a tu correo para seguimiento.</div><CorreoSpamAviso/></div>}
         <form key={q.folio||'nuevo'} action={reclamoAction} autoComplete="off" className="mt-5 space-y-3" encType="multipart/form-data">
           {session?<input type="hidden" name="rut" value={session.rut}/>:<input name="rut" required autoComplete="off" placeholder="RUT" className="w-full rounded-lg border p-3"/>}
           <select name="tipo" defaultValue="Reclamo" className="w-full rounded-lg border p-3"><option>Reclamo</option><option>Sugerencia</option><option>Felicitación</option></select>
