@@ -57,11 +57,12 @@ async function assetInline(carpeta:string,filename:string,cid:string):Promise<Sm
 
 export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmacionInput):Promise<SmtpDelivery>{
   const headerFilename=esSeptiembreEnChile()?'cabecera-septiembre.png':'cabecera-institucional.png';
-  const [bancaria,reglas,headerInline,alemzinInline]=await Promise.all([
+  const [bancaria,reglas,headerInline,logoInline,alemzinInline]=await Promise.all([
     obtenerConfiguracionBancariaActiva(),
     obtenerReglasReserva(),
-    assetInline('header',headerFilename,'cabecera-reserva@alemsi'),
-    assetInline('septiembre','alemzin-chef-email.png','alemzin-chef-reserva@alemsi'),
+    assetInline('header',headerFilename,'cabecera-reserva'),
+    assetInline('septiembre','alemsi-logo-email.png','alemsi-logo-reserva'),
+    assetInline('septiembre','alemzin-chef-email.png','alemzin-chef-reserva'),
   ]);
   const institucion=String(input.institucion||'Visitas').trim()||'Visitas';
   const horaCorte=horaCorteReservaParaInstitucion(reglas,institucion);
@@ -80,8 +81,12 @@ export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmaci
     fila('Correo de comprobantes',bancaria.correoComprobantes),
   ].join(''):'';
 
+  const cabeceraHtml=`
+    ${headerInline?'<div style="margin:0;text-align:center"><img src="cid:cabecera-reserva" alt="ALEMSI · Casino Mamuil Malal · Servicio de Alimentación" width="680" style="display:block;width:100%;max-width:680px;height:auto;border:0"/></div>':''}
+    ${logoInline?'<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#ffffff"><tr><td style="padding:10px 14px;text-align:center"><img src="cid:alemsi-logo-reserva" alt="ALEMSI" width="205" style="display:inline-block;width:205px;max-width:48%;height:auto;border:0;vertical-align:middle"/><div style="display:inline-block;max-width:48%;margin-left:12px;vertical-align:middle;text-align:left"><div style="font-size:16px;line-height:1.2;font-weight:800;color:#0B2D5B">CASINO MAMUIL MALAL</div><div style="margin-top:3px;font-size:11px;line-height:1.2;font-weight:700;color:#0D9B91">SERVICIO DE ALIMENTACIÓN</div></div></td></tr></table>':''}
+  `;
+
   const html=correoHtmlEstandar('Reserva confirmada',`
-    ${headerInline?'<div style="margin:0;text-align:center"><img src="cid:cabecera-reserva@alemsi" alt="ALEMSI · Casino Mamuil · Servicio de Alimentación" width="680" style="display:block;width:100%;max-width:680px;height:auto;border:0"/></div>':''}
     ${input.nombre?`<p style="margin:0 0 12px;font-size:14px;color:#42515a">Hola <b>${escCorreo(input.nombre)}</b>,</p>`:''}
     <p style="margin:0 0 16px;font-size:14px;line-height:1.55;color:#42515a">Tu reserva fue registrada correctamente.</p>
     <table role="presentation" width="100%" style="border-collapse:collapse;background:#f7faf8;border:1px solid #d7e1dc">
@@ -95,8 +100,8 @@ export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmaci
     ${link?`<div style="margin-top:22px;text-align:center"><a href="${escCorreo(link)}" style="display:inline-block;background:#0D9B91;color:#fff;text-decoration:none;font-weight:800;padding:12px 18px;border-radius:8px">Subir comprobante de pago</a></div>`:''}
     <div style="margin-top:18px;padding:13px 15px;background:#f7faf8;border:1px solid #d7e1dc;color:#24434a;font-size:13px;line-height:1.55"><b>Reglas de reserva</b><br/>• ${escCorreo(reglaCorte)}<br/>• El corte es por día y no depende de la hora del servicio.</div>
     <div style="margin-top:12px;padding:13px 15px;background:#eef7f6;border-left:4px solid #0D9B91;color:#24434a;font-size:13px;line-height:1.45"><b>Importante:</b> conserva este correo y el código de reserva como respaldo. El PDF adjunto contiene el detalle de la reserva.</div>
-    ${alemzinInline?'<div style="margin-top:20px;text-align:center"><img src="cid:alemzin-chef-reserva@alemsi" alt="Alemzín Chef · ALEMSI" width="180" style="display:inline-block;width:180px;max-width:65%;height:auto;border:0"/><div style="margin-top:6px;font-size:13px;font-weight:800;color:#0D9B91">¡Buen provecho!</div></div>':''}
-  `);
+    ${alemzinInline?'<div style="margin-top:20px;text-align:center"><img src="cid:alemzin-chef-reserva" alt="Alemzín Chef · ALEMSI" width="180" style="display:inline-block;width:180px;max-width:65%;height:auto;border:0"/><div style="margin-top:6px;font-size:13px;font-weight:800;color:#0D9B91">¡Buen provecho!</div></div>':''}
+  `,'CASINO MAMUIL',cabeceraHtml);
 
   const bankText=bancaria?[
     bancaria.titular&&`Titular: ${bancaria.titular}`,
@@ -118,13 +123,14 @@ export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmaci
     transfer&&bankText?`Datos bancarios:\n${bankText}`:'',
     link?`Subir comprobante: ${link}`:'',
     `Reglas de reserva:\n- ${reglaCorte}\n- El corte es por día y no depende de la hora del servicio.`,
-    '¡Buen provecho! · ALEMSI Casino Mamuil',
+    '¡Buen provecho! · ALEMSI Casino Mamuil Malal',
   ].filter(Boolean).join('\n\n');
 
   const pdf=await generarReservaPdf({codigo:input.codigo,rut:input.rut,total:input.total,choices:input.choices});
   const attachments:SmtpAttachment[]=[
     {filename:`Reserva-${input.codigo}.pdf`,contentType:'application/pdf',content:pdf},
     ...(headerInline?[headerInline]:[]),
+    ...(logoInline?[logoInline]:[]),
     ...(alemzinInline?[alemzinInline]:[]),
   ];
   return enviarCorreoSmtp({
