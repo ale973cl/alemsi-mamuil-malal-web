@@ -1,8 +1,6 @@
 import 'server-only';
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
 import { correoHtmlEstandar, escCorreo } from '@/lib/email/standard-layout';
-import { enviarCorreoSmtp, type SmtpAttachment, type SmtpDelivery } from '@/lib/email/smtp';
+import { enviarCorreoSmtp, type SmtpDelivery } from '@/lib/email/smtp';
 
 type Choice={fecha:string;servicio:string;plato:string;tipo_opcion?:string};
 
@@ -48,27 +46,6 @@ function datosBancariosEntorno(){
   ] as const;
 }
 
-function esSeptiembreEnChile(fecha=new Date()){
-  const mes=new Intl.DateTimeFormat('en-US',{timeZone:'America/Santiago',month:'numeric'}).format(fecha);
-  return Number(mes)===9;
-}
-
-async function brandingVisualReserva(){
-  const headerFilename=esSeptiembreEnChile()?'cabecera-septiembre.png':'cabecera-institucional.png';
-  const [header,alemzin]=await Promise.all([
-    readFile(path.join(process.cwd(),'public','email','header',headerFilename)),
-    readFile(path.join(process.cwd(),'public','email','septiembre','alemzin-chef-email.png')),
-  ]);
-  const nonce=`${Date.now().toString(36)}${Math.random().toString(36).slice(2,7)}`;
-  const headerCid=`reserva-cabecera-${nonce}@alemsi.cl`;
-  const alemzinCid=`reserva-alemzin-${nonce}@alemsi.cl`;
-  const attachments:SmtpAttachment[]=[
-    {filename:headerFilename,contentType:'image/png',content:header,cid:headerCid,disposition:'inline'},
-    {filename:'alemzin-chef-email.png',contentType:'image/png',content:alemzin,cid:alemzinCid,disposition:'inline'},
-  ];
-  return{headerCid,alemzinCid,attachments};
-}
-
 export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmacionInput):Promise<SmtpDelivery>{
   const transfer=/transfer/i.test(String(input.method||''));
   const link=input.pagoToken?enlaceComprobante(input.origin,input.pagoToken):'';
@@ -77,15 +54,7 @@ export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmaci
   const bancoRows=datosBancariosEntorno().map(([label,value])=>fila(label,String(value||''))).join('');
   const bankText=datosBancariosEntorno().filter(([,value])=>String(value||'').trim()).map(([label,value])=>`${label}: ${String(value)}`).join('\n');
 
-  let visual:Awaited<ReturnType<typeof brandingVisualReserva>>|undefined;
-  try{
-    visual=await brandingVisualReserva();
-  }catch{
-    console.warn('RESERVA_EMAIL_VISUAL_FALLBACK');
-  }
-
   const html=`<!-- ALEMSI_SKIP_GLOBAL_BRANDING -->${correoHtmlEstandar('Reserva confirmada',`
-    ${visual?`<div style="margin:-24px -24px 22px"><img src="cid:${visual.headerCid}" alt="ALEMSI · Casino Mamuil Malal · Servicio de Alimentación" width="680" style="display:block;width:100%;max-width:680px;height:auto;border:0" /></div>`:''}
     ${input.nombre?`<p style="margin:0 0 12px;font-size:14px;color:#42515a">Hola <b>${escCorreo(input.nombre)}</b>,</p>`:''}
     <p style="margin:0 0 16px;font-size:14px;line-height:1.55;color:#42515a">Tu reserva fue registrada correctamente.</p>
     <table role="presentation" width="100%" style="border-collapse:collapse;background:#f7faf8;border:1px solid #d7e1dc">
@@ -98,7 +67,6 @@ export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmaci
     ${transfer?`<div style="margin-top:20px;font-weight:800;color:#0B2D5B">Datos bancarios</div>${bancoRows?`<table role="presentation" width="100%" style="margin-top:8px;border-collapse:collapse;background:#f7faf8;border:1px solid #d7e1dc">${bancoRows}</table>`:`<div style="margin-top:8px;padding:12px;background:#fff8e8;border:1px solid #f0d89a;border-radius:8px;font-size:13px">Los datos bancarios deben estar configurados por Administración.</div>`}`:''}
     ${link?`<div style="margin-top:22px;text-align:center"><a href="${escCorreo(link)}" style="display:inline-block;background:#0D9B91;color:#fff;text-decoration:none;font-weight:800;padding:12px 18px;border-radius:8px">Subir comprobante de pago</a></div>`:''}
     <div style="margin-top:18px;padding:13px 15px;background:#f7faf8;border:1px solid #d7e1dc;color:#24434a;font-size:13px;line-height:1.55"><b>Importante:</b> conserva este correo y el código de reserva como respaldo.</div>
-    ${visual?`<div style="margin-top:22px;text-align:center"><img src="cid:${visual.alemzinCid}" alt="ALEMZÍN" width="140" style="display:inline-block;width:140px;max-width:42%;height:auto;border:0" /><div style="margin-top:7px;font-size:12px;line-height:1.45;font-weight:700;color:#0B2D5B">Gracias por reservar con ALEMSI</div></div>`:''}
   `)}`;
 
   const text=[
@@ -120,7 +88,6 @@ export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmaci
     subject:`Reserva confirmada ${input.codigo} · ALEMSI`,
     text,
     html,
-    attachments:visual?.attachments,
   });
   console.info(delivery.ok?'RESERVA_EMAIL_DIRECT_OK':'RESERVA_EMAIL_DIRECT_FAIL');
   return delivery;
