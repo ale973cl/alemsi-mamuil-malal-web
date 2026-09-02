@@ -2,6 +2,7 @@ import 'server-only';
 import { obtenerConfiguracionBancariaActiva, type ConfiguracionBancariaActiva } from '@/lib/db/configuracion-operativa';
 import { correoHtmlEstandar, escCorreo } from '@/lib/email/standard-layout';
 import { enviarCorreoSmtp, type SmtpDelivery } from '@/lib/email/smtp';
+import { generarReservaPdf } from '@/lib/email/reserva-pdf';
 
 type Choice={fecha:string;servicio:string;plato:string;tipo_opcion?:string};
 
@@ -89,12 +90,30 @@ export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmaci
     'Conserva este correo y el código de reserva como respaldo.',
   ].filter(Boolean).join('\n\n');
 
+  const attachments=[];
+  try{
+    const pdf=await generarReservaPdf({
+      codigo:input.codigo,
+      rut:input.rut,
+      nombre:input.nombre,
+      institucion:input.institucion,
+      method:input.method,
+      total:input.total,
+      choices,
+    });
+    attachments.push({filename:`Reserva-${input.codigo}.pdf`,contentType:'application/pdf',content:pdf});
+    console.info('RESERVA_PDF_OK');
+  }catch{
+    console.error('RESERVA_PDF_ERROR');
+  }
+
   console.info('RESERVA_EMAIL_DIRECT_START');
   const delivery=await enviarCorreoSmtp({
     to:input.correo,
     subject:`Reserva confirmada ${input.codigo} · ALEMSI`,
     text,
     html,
+    attachments,
   });
   console.info(delivery.ok?'RESERVA_EMAIL_DIRECT_OK':'RESERVA_EMAIL_DIRECT_FAIL');
   return delivery;
