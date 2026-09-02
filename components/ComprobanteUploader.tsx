@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import CorreoSpamAviso from '@/components/CorreoSpamAviso';
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 const COMPRESSION_THRESHOLD_BYTES = 3.5 * 1024 * 1024;
@@ -87,7 +88,7 @@ export default function ComprobanteUploader({ token }: { token: string }) {
     }
   }
 
-  if (state.ok) return <div className="rounded-2xl border border-[#1DB954]/30 bg-[#1DB954]/10 p-5"><b className="text-[#0E2A23]">✓ Comprobante recibido.</b><p className="mt-1 text-sm text-[#6B7570]">Finanzas lo revisará.</p></div>;
+  if (state.ok) return <div className="rounded-2xl border border-[#1DB954]/30 bg-[#1DB954]/10 p-5"><b className="text-[#0E2A23]">✓ Comprobante recibido.</b><p className="mt-1 text-sm text-[#6B7570]">Finanzas lo revisará y recibirás los avisos correspondientes por correo.</p><CorreoSpamAviso className="mt-4"/></div>;
 
   return (
     <div>
