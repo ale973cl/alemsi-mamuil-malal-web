@@ -3,7 +3,6 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf
 import { getSession } from '@/lib/auth/session';
 import { detalleProduccionFecha } from '@/lib/db/produccion-vista';
 import { listarRecetas } from '@/lib/db/recetas';
-import { cargarBrandingPdf,dibujarBrandingPdf } from '@/lib/pdf-branding';
 
 export const dynamic='force-dynamic';
 const LETTER:[number,number]=[612,792];
@@ -27,9 +26,9 @@ export async function GET(req:Request){
   const filas=produccion.filter(r=>(!platoFiltro||key(r.plato)===key(platoFiltro))&&(!servicioFiltro||key(r.servicio)===key(servicioFiltro)));
   const grupos=[...new Set(filas.map(r=>`${r.servicio}|||${r.plato}`))].map(k=>{const [servicio,plato]=k.split('|||');const rows=filas.filter(r=>r.servicio===servicio&&r.plato===plato);const receta=activas.find(x=>key(x.plato)===key(plato))||null;const reservas=rows.length;const margen=receta?.margen_produccion_pct||0;const merma=receta?.merma_pct||0;const raciones=racionesConMargen(reservas,margen);return{servicio,plato,reservas,raciones,margen,merma,receta};});
 
-  const pdf=await PDFDocument.create(),regular=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold),branding=await cargarBrandingPdf(pdf);let page!:PDFPage,y=0;const margin=34,width=LETTER[0]-margin*2;
-  const header=()=>{y=dibujarBrandingPdf({page,branding,width:LETTER[0],height:LETTER[1],regular,bold,title:'RECETAS DE PRODUCCIÓN',margin});page.drawText(`Fecha: ${visibleDate(fecha!)} · Fuente: producción real del día`,{x:margin,y,size:8,font:regular,color:TEXT});page.drawLine({start:{x:margin,y:y-10},end:{x:LETTER[0]-margin,y:y-10},thickness:1.5,color:TEAL});y-=24;};
-  const addPage=()=>{page=pdf.addPage(LETTER);header();};
+  const pdf=await PDFDocument.create(),regular=await pdf.embedFont(StandardFonts.Helvetica),bold=await pdf.embedFont(StandardFonts.HelveticaBold);let page!:PDFPage,y=0;const margin=34,width=LETTER[0]-margin*2;
+  const header=()=>{page.drawText('ALEMSI · CASINO MAMUIL',{x:margin,y:y-2,size:13,font:bold,color:NAVY});page.drawText('RECETAS DE PRODUCCIÓN',{x:margin,y:y-20,size:11,font:bold,color:NAVY});page.drawText(`Fecha: ${visibleDate(fecha!)} · Fuente: producción real del día`,{x:margin,y:y-36,size:8,font:regular,color:TEXT});page.drawLine({start:{x:margin,y:y-46},end:{x:LETTER[0]-margin,y:y-46},thickness:1.5,color:TEAL});y-=62;};
+  const addPage=()=>{page=pdf.addPage(LETTER);y=LETTER[1]-margin;header();};
   const need=(h:number)=>{if(y-h<margin+20)addPage();};addPage();
   if(!grupos.length){page.drawText('No hay producción registrada para la selección indicada.',{x:margin,y:y-10,size:10,font:bold,color:TEXT});}
   for(const g of grupos){
