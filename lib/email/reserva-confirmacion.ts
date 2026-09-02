@@ -1,10 +1,12 @@
 import 'server-only';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { obtenerConfiguracionBancariaActiva } from '@/lib/db/configuracion-operativa';
 import { obtenerReglasReserva } from '@/lib/db/reservas';
 import { horaCorteReservaParaInstitucion } from '@/lib/reglas/reserva';
 import { generarReservaPdf } from '@/lib/email/reserva-pdf';
 import { correoHtmlEstandar, escCorreo } from '@/lib/email/standard-layout';
-import { enviarCorreoSmtp, type SmtpDelivery } from '@/lib/email/smtp';
+import { enviarCorreoSmtp, type SmtpAttachment, type SmtpDelivery } from '@/lib/email/smtp';
 
 type Choice={fecha:string;servicio:string;plato:string;tipo_opcion?:string};
 
@@ -34,28 +36,32 @@ function enlaceComprobante(origin:string,token:string){
   return base.toString();
 }
 
-function enlaceActivo(origin:string,path:string){
-  const base=new URL(origin);
-  base.pathname=path;
-  base.search='';
-  base.hash='';
-  return base.toString();
-}
-
 function fila(label:string,value:string){
   if(!String(value||'').trim()) return '';
   return `<tr><td style="padding:7px 9px;color:#5b6670;width:38%">${escCorreo(label)}</td><td style="padding:7px 9px;font-weight:700;color:#0B2D5B">${escCorreo(value)}</td></tr>`;
 }
 
+async function assetInline(filename:string,cid:string):Promise<SmtpAttachment|undefined>{
+  try{
+    const content=await readFile(path.join(process.cwd(),'public','email','septiembre',filename));
+    return{filename,contentType:'image/png',content,cid,disposition:'inline'};
+  }catch{
+    return undefined;
+  }
+}
+
 export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmacionInput):Promise<SmtpDelivery>{
-  const [bancaria,reglas]=await Promise.all([obtenerConfiguracionBancariaActiva(),obtenerReglasReserva()]);
+  const [bancaria,reglas,logoInline,alemzinInline]=await Promise.all([
+    obtenerConfiguracionBancariaActiva(),
+    obtenerReglasReserva(),
+    assetInline('alemsi-logo-email.png','alemsi-logo-reserva'),
+    assetInline('alemzin-chef-email.png','alemzin-chef-reserva'),
+  ]);
   const institucion=String(input.institucion||'Visitas').trim()||'Visitas';
   const horaCorte=horaCorteReservaParaInstitucion(reglas,institucion);
   const reglaCorte=`Para reservar el día siguiente, el corte es a las ${String(horaCorte).padStart(2,'0')}:00 hrs del día anterior.`;
   const transfer=/transfer/i.test(String(input.method||''));
   const link=input.pagoToken?enlaceComprobante(input.origin,input.pagoToken):'';
-  const logoUrl=enlaceActivo(input.origin,'/email/septiembre/alemsi-logo-email.png');
-  const alemzinChefUrl=enlaceActivo(input.origin,'/email/septiembre/alemzin-chef-email.png');
   const choices=input.choices||[];
   const detalle=choices.map((item)=>`<tr><td style="padding:7px 9px">${escCorreo(item.fecha)}</td><td style="padding:7px 9px">${escCorreo(item.servicio)}</td><td style="padding:7px 9px">${escCorreo(item.tipo_opcion||'')}</td><td style="padding:7px 9px">${escCorreo(item.plato)}</td></tr>`).join('');
 
@@ -69,7 +75,7 @@ export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmaci
   ].join(''):'';
 
   const html=correoHtmlEstandar('Reserva confirmada',`
-    <div style="margin:0 0 18px;text-align:center"><img src="${escCorreo(logoUrl)}" alt="ALEMSI" width="260" style="display:inline-block;width:260px;max-width:82%;height:auto;border:0"/></div>
+    ${logoInline?'<div style="margin:0 0 18px;text-align:center"><img src="cid:alemsi-logo-reserva" alt="ALEMSI" width="260" style="display:inline-block;width:260px;max-width:82%;height:auto;border:0"/></div>':''}
     ${input.nombre?`<p style="margin:0 0 12px;font-size:14px;color:#42515a">Hola <b>${escCorreo(input.nombre)}</b>,</p>`:''}
     <p style="margin:0 0 16px;font-size:14px;line-height:1.55;color:#42515a">Tu reserva fue registrada correctamente.</p>
     <table role="presentation" width="100%" style="border-collapse:collapse;background:#f7faf8;border:1px solid #d7e1dc">
@@ -83,7 +89,7 @@ export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmaci
     ${link?`<div style="margin-top:22px;text-align:center"><a href="${escCorreo(link)}" style="display:inline-block;background:#0D9B91;color:#fff;text-decoration:none;font-weight:800;padding:12px 18px;border-radius:8px">Subir comprobante de pago</a></div>`:''}
     <div style="margin-top:18px;padding:13px 15px;background:#f7faf8;border:1px solid #d7e1dc;color:#24434a;font-size:13px;line-height:1.55"><b>Reglas de reserva</b><br/>• ${escCorreo(reglaCorte)}<br/>• El corte es por día y no depende de la hora del servicio.</div>
     <div style="margin-top:12px;padding:13px 15px;background:#eef7f6;border-left:4px solid #0D9B91;color:#24434a;font-size:13px;line-height:1.45"><b>Importante:</b> conserva este correo y el código de reserva como respaldo. El PDF adjunto contiene el detalle de la reserva.</div>
-    <div style="margin-top:20px;text-align:center"><img src="${escCorreo(alemzinChefUrl)}" alt="Alemzín Chef · ALEMSI" width="180" style="display:inline-block;width:180px;max-width:65%;height:auto;border:0"/><div style="margin-top:6px;font-size:13px;font-weight:800;color:#0D9B91">¡Buen provecho!</div></div>
+    ${alemzinInline?'<div style="margin-top:20px;text-align:center"><img src="cid:alemzin-chef-reserva" alt="Alemzín Chef · ALEMSI" width="180" style="display:inline-block;width:180px;max-width:65%;height:auto;border:0"/><div style="margin-top:6px;font-size:13px;font-weight:800;color:#0D9B91">¡Buen provecho!</div></div>':''}
   `);
 
   const bankText=bancaria?[
@@ -110,11 +116,16 @@ export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmaci
   ].filter(Boolean).join('\n\n');
 
   const pdf=await generarReservaPdf({codigo:input.codigo,rut:input.rut,total:input.total,choices:input.choices});
+  const attachments:SmtpAttachment[]=[
+    {filename:`Reserva-${input.codigo}.pdf`,contentType:'application/pdf',content:pdf},
+    ...(logoInline?[logoInline]:[]),
+    ...(alemzinInline?[alemzinInline]:[]),
+  ];
   return enviarCorreoSmtp({
     to:input.correo,
     subject:`Reserva confirmada ${input.codigo} · ALEMSI`,
     text,
     html,
-    attachments:[{filename:`Reserva-${input.codigo}.pdf`,contentType:'application/pdf',content:pdf}],
+    attachments,
   });
 }
