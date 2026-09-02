@@ -1,5 +1,7 @@
 import 'server-only';
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type PDFImage } from 'pdf-lib';
 
 type Choice={fecha:string;servicio:string;plato:string;tipo_opcion?:string};
 
@@ -17,6 +19,17 @@ function dateCL(v:string){const [y,m,d]=String(v).split('-');return y&&m&&d?`${d
 function money(v:number){return new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(Number(v||0));}
 function safe(v:unknown){return String(v??'').replace(/[\u0000-\u001F\u007F]/g,' ').trim();}
 function wrap(text:string,font:PDFFont,size:number,maxWidth:number){const words=safe(text).split(/\s+/).filter(Boolean);const lines:string[]=[];let line='';for(const word of words){const test=line?`${line} ${word}`:word;if(font.widthOfTextAtSize(test,size)<=maxWidth)line=test;else{if(line)lines.push(line);line=word;}}if(line)lines.push(line);return lines.length?lines:['—'];}
+function esSeptiembreEnChile(fecha=new Date()){const mes=new Intl.DateTimeFormat('en-US',{timeZone:'America/Santiago',month:'numeric'}).format(fecha);return Number(mes)===9;}
+async function brandingPdf(pdf:PDFDocument):Promise<{header?:PDFImage;logo?:PDFImage}>{
+  try{
+    const headerFilename=esSeptiembreEnChile()?'cabecera-septiembre.png':'cabecera-institucional.png';
+    const [headerBytes,logoBytes]=await Promise.all([
+      readFile(path.join(process.cwd(),'public','email','header',headerFilename)),
+      readFile(path.join(process.cwd(),'public','email','septiembre','alemsi-logo-email.png')),
+    ]);
+    return{header:await pdf.embedPng(headerBytes),logo:await pdf.embedPng(logoBytes)};
+  }catch{return{};}
+}
 
 export async function generarReservaPdf(input:{codigo:string;rut?:string;total?:number;choices?:Choice[]}){
   const choices=input.choices||[];
@@ -27,21 +40,36 @@ export async function generarReservaPdf(input:{codigo:string;rut?:string;total?:
   const pdf=await PDFDocument.create();
   const regular=await pdf.embedFont(StandardFonts.Helvetica);
   const bold=await pdf.embedFont(StandardFonts.HelveticaBold);
+  const brand=await brandingPdf(pdf);
   const margin=38;
   let page:PDFPage=pdf.addPage(LETTER);
   let y=LETTER[1]-margin;
 
   const footer=()=>{
     page.drawLine({start:{x:margin,y:34},end:{x:LETTER[0]-margin,y:34},thickness:.6,color:LINE});
-    page.drawText('ALEMSI · Casino Mamuil · Documento generado automáticamente',{x:margin,y:21,size:7,font:regular,color:MUTED});
+    page.drawText('ALEMSI · Casino Mamuil Malal · Documento generado automáticamente',{x:margin,y:21,size:7,font:regular,color:MUTED});
   };
   const header=()=>{
-    page.drawRectangle({x:0,y:LETTER[1]-92,width:LETTER[0],height:92,color:NAVY});
-    page.drawText('ALEMSI',{x:margin,y:LETTER[1]-43,size:22,font:bold,color:rgb(1,1,1)});
-    page.drawText('CASINO MAMUIL',{x:margin,y:LETTER[1]-61,size:9,font:bold,color:rgb(127/255,225/255,214/255)});
-    page.drawText('CONFIRMACIÓN DE RESERVA',{x:LETTER[0]-margin-190,y:LETTER[1]-48,size:12,font:bold,color:rgb(1,1,1)});
-    page.drawText('Respaldo de alimentación',{x:LETTER[0]-margin-190,y:LETTER[1]-64,size:8,font:regular,color:rgb(225/255,235/255,232/255)});
-    y=LETTER[1]-118;
+    if(brand.header&&brand.logo){
+      const bannerHeight=Math.min(182,LETTER[0]*(brand.header.height/brand.header.width));
+      page.drawImage(brand.header,{x:0,y:LETTER[1]-bannerHeight,width:LETTER[0],height:bannerHeight});
+      const stripTop=LETTER[1]-bannerHeight;
+      page.drawRectangle({x:0,y:stripTop-64,width:LETTER[0],height:64,color:rgb(1,1,1),borderColor:LINE,borderWidth:.5});
+      const logoWidth=142;
+      const logoHeight=logoWidth*(brand.logo.height/brand.logo.width);
+      page.drawImage(brand.logo,{x:margin,y:stripTop-54,width:logoWidth,height:Math.min(44,logoHeight)});
+      page.drawText('CASINO MAMUIL MALAL',{x:margin+164,y:stripTop-29,size:12,font:bold,color:NAVY});
+      page.drawText('SERVICIO DE ALIMENTACIÓN',{x:margin+164,y:stripTop-45,size:8,font:bold,color:TEAL});
+      page.drawText('CONFIRMACIÓN DE RESERVA',{x:LETTER[0]-margin-180,y:stripTop-29,size:9,font:bold,color:NAVY});
+      y=stripTop-86;
+    }else{
+      page.drawRectangle({x:0,y:LETTER[1]-92,width:LETTER[0],height:92,color:NAVY});
+      page.drawText('ALEMSI',{x:margin,y:LETTER[1]-43,size:22,font:bold,color:rgb(1,1,1)});
+      page.drawText('CASINO MAMUIL MALAL',{x:margin,y:LETTER[1]-61,size:9,font:bold,color:rgb(127/255,225/255,214/255)});
+      page.drawText('CONFIRMACIÓN DE RESERVA',{x:LETTER[0]-margin-190,y:LETTER[1]-48,size:12,font:bold,color:rgb(1,1,1)});
+      page.drawText('Respaldo de alimentación',{x:LETTER[0]-margin-190,y:LETTER[1]-64,size:8,font:regular,color:rgb(225/255,235/255,232/255)});
+      y=LETTER[1]-118;
+    }
   };
   const newPage=()=>{footer();page=pdf.addPage(LETTER);header();};
   const need=(height:number)=>{if(y-height<58)newPage();};
