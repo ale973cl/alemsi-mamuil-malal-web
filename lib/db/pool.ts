@@ -22,6 +22,8 @@ export function db(): Pool {
       max: 1,
       idleTimeoutMillis: 10_000,
       connectionTimeoutMillis: 10_000,
+      query_timeout: 15_000,
+      statement_timeout: 12_000,
       allowExitOnIdle: true,
       ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
     });
