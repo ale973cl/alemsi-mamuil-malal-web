@@ -60,18 +60,22 @@ export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmaci
 
   const html=correoHtmlEstandar('Reserva confirmada',`
     ${input.nombre?`<p style="margin:0 0 12px;font-size:14px;color:#42515a">Hola <b>${escCorreo(input.nombre)}</b>,</p>`:''}
-    <p style="margin:0 0 16px;font-size:14px;line-height:1.55;color:#42515a">Tu reserva fue registrada correctamente.</p>
-    <table role="presentation" width="100%" style="border-collapse:collapse;background:#f7faf8;border:1px solid #d7e1dc">
-      ${fila('Código / referencia',input.codigo)}
-      ${fila('RUT',input.rut||'')}
-      ${fila('Método de pago',input.method||'')}
-      ${fila('Monto a pagar',money(Number(input.total||0)))}
+    <div style="margin:0 0 18px;padding:15px 16px;background:#eef7f6;border-left:4px solid #0D9B91;color:#24434a;font-size:15px;line-height:1.5"><b>Tu reserva quedó registrada correctamente.</b><br>Revisa a continuación las fechas, servicios y forma de pago.</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:8px 0;margin:0 -8px 4px;width:calc(100% + 16px)">
+      <tr>
+        <td width="50%" style="padding:13px 14px;vertical-align:top;background:#f7faf8;border:1px solid #d7e1dc;border-radius:8px"><div style="font-size:11px;line-height:16px;color:#5b6670;text-transform:uppercase;letter-spacing:.4px">Método de pago</div><div style="margin-top:3px;font-size:15px;line-height:21px;font-weight:800;color:#0B2D5B">${escCorreo(input.method||'No informado')}</div></td>
+        <td width="50%" style="padding:13px 14px;vertical-align:top;background:#f7faf8;border:1px solid #d7e1dc;border-radius:8px"><div style="font-size:11px;line-height:16px;color:#5b6670;text-transform:uppercase;letter-spacing:.4px">Monto a pagar</div><div style="margin-top:3px;font-size:17px;line-height:21px;font-weight:800;color:#087A46">${escCorreo(money(Number(input.total||0)))}</div></td>
+      </tr>
     </table>
-    ${detalle?`<div style="margin-top:20px;font-weight:800;color:#0B2D5B">Detalle de la reserva</div><table role="presentation" width="100%" style="margin-top:8px;border-collapse:collapse;border:1px solid #d7e1dc;font-size:13px"><tr style="background:#eef7f6;font-weight:800;color:#0B2D5B"><td style="padding:7px 9px">Fecha</td><td style="padding:7px 9px">Servicio</td><td style="padding:7px 9px">Opción</td><td style="padding:7px 9px">Plato</td></tr>${detalle}</table>`:''}
+    ${detalle?`<div style="margin-top:20px;font-size:16px;font-weight:800;color:#0B2D5B">Detalle de la reserva</div><table role="presentation" width="100%" style="margin-top:8px;border-collapse:collapse;border:1px solid #d7e1dc;font-size:13px"><tr style="background:#eef7f6;font-weight:800;color:#0B2D5B"><td style="padding:8px 9px">Fecha</td><td style="padding:8px 9px">Servicio</td><td style="padding:8px 9px">Opción</td><td style="padding:8px 9px">Plato</td></tr>${detalle}</table>`:''}
     ${transfer?`<div style="margin-top:20px;font-weight:800;color:#0B2D5B">Datos bancarios</div>${bancoRows?`<table role="presentation" width="100%" style="margin-top:8px;border-collapse:collapse;background:#f7faf8;border:1px solid #d7e1dc">${bancoRows}</table>`:`<div style="margin-top:8px;padding:12px;background:#fff8e8;border:1px solid #f0d89a;border-radius:8px;font-size:13px">Los datos bancarios deben estar configurados por Administración.</div>`}`:''}
     ${transfer?`<div style="margin-top:14px;padding:13px 15px;background:#eef7f6;border-left:4px solid #0D9B91;color:#24434a;font-size:13px;line-height:1.55"><b>Pago por transferencia:</b> no es obligatorio pagar antes del consumo. Cuando realices la transferencia, utiliza el código de reserva como referencia y carga el comprobante para que Finanzas pueda identificarlo.</div>`:''}
     ${!transfer&&Number(input.total||0)>0?`<div style="margin-top:20px;padding:13px 15px;background:#eef7f6;border:1px solid #cfe5df;color:#24434a;font-size:13px;line-height:1.55"><b>Pago en la instalación:</b> podrás pagar con débito o mediante código QR. No necesitas realizar una transferencia ni cargar un comprobante.</div>`:''}
     ${link?`<div style="margin-top:22px;text-align:center"><a href="${escCorreo(link)}" style="display:inline-block;background:#0D9B91;color:#fff;text-decoration:none;font-weight:800;padding:12px 18px;border-radius:8px">Subir comprobante de pago</a></div>`:''}
+    <table role="presentation" width="100%" style="margin-top:20px;border-collapse:collapse;border-top:1px solid #d7e1dc;font-size:12px;color:#5b6670">
+      ${fila('Código de reserva',input.codigo)}
+      ${fila('RUT',input.rut||'')}
+    </table>
     <div style="margin-top:18px;padding:13px 15px;background:#f7faf8;border:1px solid #d7e1dc;color:#24434a;font-size:13px;line-height:1.55"><b>Importante:</b> conserva este correo y el código de reserva como respaldo.</div>
   `);
 
