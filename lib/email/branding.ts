@@ -26,6 +26,9 @@ function bloqueBranding(headerCid:string,logoCid:string){
 }
 
 export async function aplicarBrandingCorreo(html:string,attachments:InlineAttachment[]){
+  if(html.includes('<!-- ALEMSI_SKIP_GLOBAL_BRANDING -->')){
+    return{html:html.replace('<!-- ALEMSI_SKIP_GLOBAL_BRANDING -->',''),attachments};
+  }
   const yaTieneCabecera=/cid:cabecera-[^\"']+/i.test(html);
   const yaTieneLogo=/cid:alemsi-logo-[^\"']+/i.test(html);
   if(yaTieneCabecera&&yaTieneLogo) return{html,attachments};
