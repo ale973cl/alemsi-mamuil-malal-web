@@ -57,7 +57,7 @@ export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmaci
   const bancoRows=banco.map(([label,value])=>fila(label,String(value||''))).join('');
   const bankText=banco.filter(([,value])=>String(value||'').trim()).map(([label,value])=>`${label}: ${String(value)}`).join('\n');
 
-  const html=`<!-- ALEMSI_SKIP_GLOBAL_BRANDING -->${correoHtmlEstandar('Reserva confirmada',`
+  const html=correoHtmlEstandar('Reserva confirmada',`
     ${input.nombre?`<p style="margin:0 0 12px;font-size:14px;color:#42515a">Hola <b>${escCorreo(input.nombre)}</b>,</p>`:''}
     <p style="margin:0 0 16px;font-size:14px;line-height:1.55;color:#42515a">Tu reserva fue registrada correctamente.</p>
     <table role="presentation" width="100%" style="border-collapse:collapse;background:#f7faf8;border:1px solid #d7e1dc">
@@ -72,7 +72,7 @@ export async function notificarReservaConfirmadaDinamica(input:ReservaConfirmaci
     ${!transfer&&Number(input.total||0)>0?`<div style="margin-top:20px;padding:13px 15px;background:#eef7f6;border:1px solid #cfe5df;color:#24434a;font-size:13px;line-height:1.55"><b>Pago en la instalación:</b> podrás pagar con débito o mediante código QR. No necesitas realizar una transferencia ni cargar un comprobante.</div>`:''}
     ${link?`<div style="margin-top:22px;text-align:center"><a href="${escCorreo(link)}" style="display:inline-block;background:#0D9B91;color:#fff;text-decoration:none;font-weight:800;padding:12px 18px;border-radius:8px">Subir comprobante de pago</a></div>`:''}
     <div style="margin-top:18px;padding:13px 15px;background:#f7faf8;border:1px solid #d7e1dc;color:#24434a;font-size:13px;line-height:1.55"><b>Importante:</b> conserva este correo y el código de reserva como respaldo.</div>
-  `)}`;
+  `);
 
   const text=[
     'Reserva confirmada',
