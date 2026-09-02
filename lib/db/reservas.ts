@@ -108,7 +108,7 @@ function codigoVoucher(rut: string, servicio: string, fecha: string): string {
 export type CrearReservaInput = {
   rut: string;
   elecciones: EleccionReserva[];
-  metodoPago?: 'Transferencia bancaria' | 'Débito en la instalación';
+  metodoPago?: 'Transferencia bancaria' | 'Débito / pago con QR en la instalación';
 };
 
 export async function crearOActualizarReserva(input: CrearReservaInput) {
@@ -179,9 +179,10 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
   const precioPersona = await obtenerPrecioPersona(rut, institucion);
   const codigoPublico = await codigoReservaPublico();
   const referencia = codigoPublico;
-  const pagoToken = !esAlem ? crypto.randomBytes(32).toString('base64url') : '';
   const ahora = new Date().toISOString();
   const metodo = esAlem ? 'Interno ALEMSI' : input.metodoPago || 'Transferencia bancaria';
+  const requiereComprobante = !esAlem && !esCoordinador && /transfer/i.test(metodo);
+  const pagoToken = requiereComprobante ? crypto.randomBytes(32).toString('base64url') : '';
 
   const porFecha = new Map<string, EleccionReserva[]>();
   for (const item of input.elecciones) {
