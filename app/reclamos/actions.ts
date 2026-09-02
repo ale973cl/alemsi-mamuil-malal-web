@@ -54,18 +54,21 @@ export async function reclamoAction(fd:FormData){
         : 'Conserva este correo y el folio como comprobante de ingreso y referencia de seguimiento.';
       const html=layout(perfil.asunto,`
         <p style="margin:0 0 16px;font-size:14px;line-height:1.55;color:#42515a">Hola <b>${esc(registro.nombre)}</b>,</p>
-        <p style="margin:0 0 18px;font-size:14px;line-height:1.55;color:#42515a">${esc(perfil.apertura)}</p>
+        <p style="margin:0 0 18px;font-size:15px;line-height:1.55;color:#42515a">${esc(perfil.apertura)}</p>
+        <div style="margin-bottom:18px;padding:15px 16px;background:#eef7f6;border-left:4px solid #0D9B91;color:#24434a"><div style="font-size:11px;line-height:16px;color:#5b6670;text-transform:uppercase;letter-spacing:.4px">Estado del caso</div><div style="margin-top:3px;font-size:17px;line-height:22px;font-weight:800;color:#087A46">Pendiente de revisión</div></div>
         <table role="presentation" width="100%" style="border-collapse:collapse;background:#f7faf8;border:1px solid #d7e1dc">
-          <tr><td style="padding:8px;color:#5b6670;width:38%">Folio de seguimiento</td><td style="padding:8px;font-weight:800;color:#0B2D5B">${esc(folio)}</td></tr>
-          <tr><td style="padding:8px;color:#5b6670">Fecha y hora</td><td style="padding:8px;font-weight:700">${esc(fechaHoraVisibleChile(new Date(registro.fecha)))}</td></tr>
-          <tr><td style="padding:8px;color:#5b6670">Tipo</td><td style="padding:8px;font-weight:700">${esc(registro.tipo)}</td></tr>
-          <tr><td style="padding:8px;color:#5b6670">Categoría</td><td style="padding:8px;font-weight:700">${esc(registro.categoria)}</td></tr>
-          <tr><td style="padding:8px;color:#5b6670">Estado</td><td style="padding:8px;font-weight:800;color:#087A46">Pendiente de revisión</td></tr>
+          <tr><td style="padding:9px;color:#5b6670;width:38%">Tipo</td><td style="padding:9px;font-weight:700;color:#0B2D5B">${esc(registro.tipo)}</td></tr>
+          <tr><td style="padding:9px;color:#5b6670;border-top:1px solid #e4ebe7">Categoría</td><td style="padding:9px;font-weight:700;color:#0B2D5B;border-top:1px solid #e4ebe7">${esc(registro.categoria)}</td></tr>
         </table>
-        <div style="margin-top:18px;padding:14px 16px;background:#eef7f6;border:1px solid #cfe5df;border-radius:8px;font-size:14px;line-height:1.5;color:#24434a"><b>Tu mensaje</b><br>${esc(registro.mensaje)}</div>
+        <div style="margin-top:18px;font-size:16px;font-weight:800;color:#0B2D5B">Mensaje recibido</div>
+        <div style="margin-top:8px;padding:16px;background:#fff;border:1px solid #cfe5df;border-radius:8px;font-size:15px;line-height:1.6;color:#24434a">${esc(registro.mensaje)}</div>
         <div style="margin-top:14px;padding:12px 14px;background:#f7faf8;border:1px solid #d7e1dc;border-radius:8px;font-size:13px;color:#42515a">${tieneArchivo?`<b>Antecedente recibido:</b> ${esc(file.name)}`:'No se adjuntaron antecedentes en este ingreso.'}</div>
         <p style="margin:18px 0 0;font-size:13px;line-height:1.55;color:#42515a">${esc(perfil.seguimiento)}</p>
-        <p style="margin:10px 0 0;font-size:13px;line-height:1.55;color:#42515a">${esc(detalleGestion)}</p>`);
+        <p style="margin:10px 0 0;font-size:13px;line-height:1.55;color:#42515a">${esc(detalleGestion)}</p>
+        <table role="presentation" width="100%" style="margin-top:18px;border-collapse:collapse;border-top:1px solid #d7e1dc;font-size:12px;color:#5b6670">
+          <tr><td style="padding:9px 0;width:38%">Folio de seguimiento</td><td style="padding:9px 0;font-weight:700;color:#0B2D5B">${esc(folio)}</td></tr>
+          <tr><td style="padding:0 0 9px">Fecha y hora</td><td style="padding:0 0 9px;font-weight:700;color:#0B2D5B">${esc(fechaHoraVisibleChile(new Date(registro.fecha)))}</td></tr>
+        </table>`);
       const text=[
         `Hola ${registro.nombre},`,perfil.apertura,`Folio de seguimiento: ${folio}`,`Fecha y hora: ${fechaHoraVisibleChile(new Date(registro.fecha))}`,`Tipo: ${registro.tipo}`,`Categoría: ${registro.categoria}`,'Estado: Pendiente de revisión',`Tu mensaje: ${registro.mensaje}`,
         tieneArchivo?`Antecedente recibido: ${file.name}`:'No se adjuntaron antecedentes en este ingreso.',perfil.seguimiento,detalleGestion,'ALEMSI · Casino Mamuil'
