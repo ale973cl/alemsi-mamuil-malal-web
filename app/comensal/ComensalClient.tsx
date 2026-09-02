@@ -1,6 +1,7 @@
 "use client";
 import { useEffect,useMemo,useState } from "react";
 import ComprobanteReservaLink from "@/components/ComprobanteReservaLink";
+import CorreoSpamAviso from "@/components/CorreoSpamAviso";
 type Person={rut:string;displayRut:string;nombre:string;telefono:string;correo:string;institucion:string};
 type MenuRow={fecha:string;dia_semana:string;servicio:string;tipo_opcion:string;plato:string};
 type Choice={fecha:string;servicio:string;plato:string;tipo_opcion?:string};
@@ -20,7 +21,7 @@ function ReserveWizard({person,blocked}:{person:Person;blocked:boolean}){
  useEffect(()=>{fetch(`/api/comensal/menu?rut=${encodeURIComponent(person.rut)}&from=${first}&to=${lastIso}`).then(r=>r.json()).then(j=>{if(j.error)setErr(j.error);else setRows(j.rows||[])});},[person.rut,first,lastIso]);
  const inst=person.institucion.trim().toLocaleLowerCase("es-CL"); const isAlem=inst==="alemsi"||inst==="alemsi paso fronterizo"||inst==="alemsi administrativos"; const coordinator=inst==="coordinadores"; const dates=useMemo(()=>[...new Set(rows.map(x=>x.fecha))].sort(),[rows]); const currentDate=selectedDates[dayIndex]; const dayRows=rows.filter(x=>x.fecha===currentDate); const services=[...new Set(dayRows.map(x=>x.servicio))];
  if(blocked)return <section className="reserveCard"><h2>Nueva reserva</h2><p className="muted">La creación de nuevas reservas está bloqueada hasta que Finanzas valide los pagos pendientes.</p></section>;
- if(result)return <section className="reserveCard successCard"><span className="stepLabel">RESERVA CONFIRMADA</span><h2>{result.code}</h2><p>Referencia interna: <b>{result.reference}</b></p>{result.total>0&&<p>Total: <b>{fmt(result.total)}</b></p>}<p>La reserva ya quedó registrada en la misma base operacional utilizada por RC8.</p><button className="primary" onClick={()=>{setResult(null);setSelectedDates([]);setChoices({});setDecisions({});setStage(1);setDayIndex(0)}}>Nueva reserva</button></section>;
+ if(result)return <section className="reserveCard successCard"><span className="stepLabel">RESERVA CONFIRMADA</span><h2>{result.code}</h2><p>Referencia interna: <b>{result.reference}</b></p>{result.total>0&&<p>Total: <b>{fmt(result.total)}</b></p>}<p>La reserva ya quedó registrada en la misma base operacional utilizada por RC8.</p><CorreoSpamAviso className="mt-4"/><button className="primary" onClick={()=>{setResult(null);setSelectedDates([]);setChoices({});setDecisions({});setStage(1);setDayIndex(0)}}>Nueva reserva</button></section>;
  function toggleDate(d:string){setSelectedDates(s=>s.includes(d)?s.filter(x=>x!==d):[...s,d].sort())}
  function choose(servicio:string, row:MenuRow){const key=`${currentDate}|${servicio}`;setDecisions(d=>({...d,[key]:"yes"}));setChoices(c=>({...c,[key]:{fecha:currentDate,servicio,plato:row.plato,tipo_opcion:row.tipo_opcion}}))} function noConsume(servicio:string){const key=`${currentDate}|${servicio}`;setDecisions(d=>({...d,[key]:"no"}));setChoices(c=>{const n={...c};delete n[key];return n})}
  function nextDay(){
