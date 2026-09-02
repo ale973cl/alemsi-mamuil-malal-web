@@ -3,14 +3,12 @@ import { guardarReclamo } from '@/lib/db/comensal-gestion';
 import { agregarAdjuntoInicial } from '@/lib/db/reclamos';
 import { getComensalSession } from '@/lib/auth/comensal-session';
 import { enviarCorreoSmtp } from '@/lib/email/smtp';
+import { correoHtmlEstandar } from '@/lib/email/standard-layout';
 import { redirect } from 'next/navigation';
 import { fechaHoraVisibleChile } from '@/lib/fecha-hora';
 
 function esc(v:unknown){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c));}
-function layout(title:string,content:string){
-  const banner=String(process.env.SEPTEMBER_EMAIL_BANNER_URL||'').trim();
-  return `<!doctype html><html><body style="margin:0;background:#f4f6f5;font-family:Arial,Helvetica,sans-serif;color:#14232d"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6f5;padding:24px 10px"><tr><td align="center"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;background:#fff;border:1px solid #d7e1dc;border-radius:12px;overflow:hidden">${banner?`<tr><td style="padding:0"><img src="${esc(banner)}" alt="ALEMSI Casino" width="680" style="display:block;width:100%;max-width:680px;height:auto;border:0"/></td></tr>`:`<tr><td style="background:#0B2D5B;padding:20px 24px;color:white"><div style="font-size:20px;font-weight:800;letter-spacing:.5px">ALEMSI · CASINO MAMUIL</div><div style="margin-top:4px;color:#7FE1D6;font-size:12px;font-weight:700">ATENCIÓN AL COMENSAL</div></td></tr>`}<tr><td style="padding:24px"><div style="font-size:22px;font-weight:800;color:#0B2D5B;margin-bottom:18px">${esc(title)}</div>${content}</td></tr><tr><td style="border-top:1px solid #d7e1dc;padding:14px 24px;font-size:11px;color:#6b7570">ALEMSI · Casino Mamuil · Alimentamos bien, cuidamos a las personas.</td></tr></table></td></tr></table></body></html>`;
-}
+function layout(title:string,content:string){return correoHtmlEstandar(title,content,'ATENCIÓN AL COMENSAL');}
 
 function plantillaConfirmacion(tipoOriginal:string){
   const tipo=tipoOriginal.trim().toLowerCase();
