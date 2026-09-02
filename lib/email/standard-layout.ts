@@ -9,7 +9,7 @@ export function correoHtmlEstandar(title:string,content:string,eyebrow='CASINO M
   let bodyContent=content;
   let headerHtml='';
   if(content.includes(cidHeaderMarker)){
-    const match=content.match(/^\s*(<div[^>]*>\s*<img[^>]*src="cid:cabecera-reserva"[^>]*>\s*<\/div>)\s*/i);
+    const match=content.match(/^\s*(<div[^>]*>\s*<img[^>]*src="cid:cabecera-reserva[^\"]*"[^>]*>\s*<\/div>)\s*/i);
     if(match){
       headerHtml=match[1];
       bodyContent=content.slice(match[0].length);
