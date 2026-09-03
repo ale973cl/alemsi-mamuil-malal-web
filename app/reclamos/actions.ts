@@ -4,6 +4,7 @@ import { agregarAdjuntoInicial } from '@/lib/db/reclamos';
 import { getComensalSession } from '@/lib/auth/comensal-session';
 import { enviarCorreoSmtp } from '@/lib/email/smtp';
 import { redirect } from 'next/navigation';
+import { headers } from 'next/headers';
 
 function esc(v:unknown){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c));}
 function layout(title:string,content:string){
@@ -37,7 +38,8 @@ function plantillaConfirmacion(tipoOriginal:string){
 export async function reclamoAction(fd:FormData){
   const session=await getComensalSession();
   const rut=session?.rut||String(fd.get('rut')||'');
-  const registro=await guardarReclamo(rut,String(fd.get('tipo')||''),String(fd.get('categoria')||''),String(fd.get('mensaje')||''));
+  const h=await headers(); const host=h.get('x-forwarded-host')||h.get('host'); const proto=h.get('x-forwarded-proto')||'https'; const origin=host?`${proto}://${host}`:undefined;
+  const registro=await guardarReclamo(rut,String(fd.get('tipo')||''),String(fd.get('categoria')||''),String(fd.get('mensaje')||''),origin);
   const file=fd.get('archivo');
   if(file instanceof File&&file.size>0){
     if(file.size>10*1024*1024) throw new Error('El archivo supera 10 MB.');

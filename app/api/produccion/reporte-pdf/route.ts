@@ -1,25 +1,18 @@
 import { NextResponse } from 'next/server';
-import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from 'pdf-lib';
 import { getSession } from '@/lib/auth/session';
-import { detalleProduccionFecha, type ProduccionComensalRow } from '@/lib/db/produccion-vista';
+import { detalleProduccionFecha } from '@/lib/db/produccion-vista';
+import { generarProduccionPdf } from '@/lib/email/produccion-pdf';
 
 export const dynamic='force-dynamic';
-const LETTER:[number,number]=[612,792];const NAVY=rgb(11/255,59/255,120/255);const GREEN=rgb(8/255,122/255,70/255);const TEAL=rgb(13/255,155/255,145/255);const LIGHT=rgb(247/255,250/255,248/255);const LINE=rgb(203/255,217/255,211/255);const TEXT=rgb(20/255,35/255,45/255);
 function validDate(v:string|null){return Boolean(v&&/^\d{4}-\d{2}-\d{2}$/.test(v));}
-function visibleDate(v:string){const [y,m,d]=v.split('-');return `${d}-${m}-${y}`;}
-function safe(v:string){return String(v||'').replace(/[\u0000-\u001F\u007F]/g,' ').trim();}
-function optionShort(v:string){const s=safe(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();if(s.includes('OPCION 1'))return'Op. 1';if(s.includes('OPCION 2'))return'Op. 2';if(s.includes('HIPO'))return'Hip.';return safe(v)||'—';}
-function wrap(text:string,font:PDFFont,size:number,maxWidth:number){const words=safe(text).split(/\s+/).filter(Boolean);const lines:string[]=[];let line='';for(const word of words){const test=line?`${line} ${word}`:word;if(font.widthOfTextAtSize(test,size)<=maxWidth)line=test;else{if(line)lines.push(line);line=word;}}if(line)lines.push(line);return lines.length?lines:['—'];}
-function groupDish(rows:ProduccionComensalRow[]){const keys=[...new Set(rows.map(r=>`${r.tipo_opcion||'SIN OPCION'}|||${r.plato}`))];return keys.map(key=>{const [option,dish]=key.split('|||');const people=rows.filter(r=>(r.tipo_opcion||'SIN OPCION')===option&&r.plato===dish);const institutions=[...new Set(people.map(r=>r.institucion))].sort((a,b)=>a.localeCompare(b,'es')).map(name=>({name,people:people.filter(r=>r.institucion===name).sort((a,b)=>a.nombre.localeCompare(b.nombre,'es'))}));return{option,dish,people,institutions};});}
 
 export async function GET(req:Request){
- const user=await getSession();if(!user||!['Cocina','AdminCasino','AdminTotal'].includes(user.rol))return NextResponse.json({error:'No autorizado'},{status:401});const url=new URL(req.url);const fecha=url.searchParams.get('fecha');if(!validDate(fecha))return NextResponse.json({error:'Fecha inválida'},{status:400});const rows=await detalleProduccionFecha(fecha!);const diners=new Set(rows.map(r=>r.rut)).size;
- const pdf=await PDFDocument.create();const regular=await pdf.embedFont(StandardFonts.Helvetica);const bold=await pdf.embedFont(StandardFonts.HelveticaBold);const margin=28,gap=10,colW=(LETTER[0]-margin*2-gap)/2;let page!:PDFPage;let y=0;
- const drawHeader=()=>{page.drawText('ALEMSI · CASINO MAMUIL',{x:margin,y:y-2,size:13,font:bold,color:NAVY});page.drawText('REPORTE DIARIO DE PRODUCCIÓN',{x:margin,y:y-19,size:10.5,font:bold,color:NAVY});page.drawText(`Fecha: ${visibleDate(fecha!)}   ·   Comensales del día: ${diners}   ·   Raciones a producir: ${rows.length}`,{x:margin,y:y-35,size:7.5,font:regular,color:TEXT});page.drawLine({start:{x:margin,y:y-45},end:{x:LETTER[0]-margin,y:y-45},thickness:1.5,color:TEAL});y-=57;};
- const addPage=()=>{page=pdf.addPage(LETTER);y=LETTER[1]-margin;drawHeader();};const need=(h:number)=>{if(y-h<margin+18)addPage();};addPage();if(!rows.length)page.drawText('No hay reservas activas con plato para esta fecha.',{x:margin,y:y-10,size:10,font:bold,color:TEXT});
- for(const service of [...new Set(rows.map(r=>r.servicio))]){const sr=rows.filter(r=>r.servicio===service);const cards=groupDish(sr);need(28);page.drawText(`${service.toUpperCase()} · ${sr.length} RACIONES`,{x:margin,y:y-12,size:10,font:bold,color:service.toLowerCase()==='cena'?NAVY:GREEN});page.drawLine({start:{x:margin,y:y-18},end:{x:LETTER[0]-margin,y:y-18},thickness:1,color:TEAL});y-=27;
-  for(let i=0;i<cards.length;i+=2){const pair=cards.slice(i,i+2);const heights=pair.map(card=>{let maxNames=0;for(const inst of card.institutions)maxNames=Math.max(maxNames,inst.people.length);const cols=Math.min(2,Math.max(1,card.institutions.length));const rowsInst=Math.ceil(card.institutions.length/cols);let h=40;for(let ri=0;ri<rowsInst;ri++){const slice=card.institutions.slice(ri*cols,ri*cols+cols);const rowNames=Math.max(...slice.map(x=>x.people.length));h+=22+rowNames*10;}return h+8;});const rowH=Math.max(...heights);need(rowH+8);
-   pair.forEach((card,index)=>{const x=margin+index*(colW+gap),top=y,h=heights[index];page.drawRectangle({x,y:top-h,width:colW,height:h,borderColor:LINE,borderWidth:.7});page.drawText(optionShort(card.option),{x:x+7,y:top-12,size:6.8,font:bold,color:TEAL});const dishLines=wrap(card.dish,bold,8.2,colW-46);dishLines.slice(0,2).forEach((line,li)=>page.drawText(line,{x:x+7,y:top-24-li*9,size:8.2,font:bold,color:NAVY}));const count=String(card.people.length);page.drawText(count,{x:x+colW-9-bold.widthOfTextAtSize(count,8),y:top-24,size:8,font:bold,color:NAVY});let cy=top-42;const instCols=card.institutions.length>1?2:1;const instW=(colW-14-(instCols-1)*6)/instCols;for(let ii=0;ii<card.institutions.length;ii+=instCols){const slice=card.institutions.slice(ii,ii+instCols);const rowNames=Math.max(...slice.map(s=>s.people.length));const blockH=18+rowNames*10;slice.forEach((inst,ci)=>{const ix=x+7+ci*(instW+6);page.drawRectangle({x:ix,y:cy-blockH+4,width:instW,height:blockH,color:LIGHT,borderColor:LINE,borderWidth:.35});page.drawText(safe(inst.name).slice(0,28),{x:ix+4,y:cy-8,size:6.5,font:bold,color:NAVY});inst.people.forEach((p,pi)=>{const lines=wrap(p.nombre,regular,6.5,instW-8);page.drawText(lines[0],{x:ix+4,y:cy-19-pi*10,size:6.5,font:regular,color:TEXT});});});cy-=blockH+5;}});y-=rowH+8;}
- }
- need(34);page.drawText('OBSERVACIONES:',{x:margin,y:y-6,size:7,font:bold,color:NAVY});page.drawLine({start:{x:margin,y:y-18},end:{x:LETTER[0]-margin,y:y-18},thickness:.5,color:LINE});page.drawText('Responsable cocina: ______________________________     Hora: __________',{x:margin,y:y-31,size:7,font:regular,color:TEXT});const bytes=await pdf.save();const filename=`ALEMSI-Produccion-${fecha}.pdf`;return new NextResponse(Buffer.from(bytes),{status:200,headers:{'Content-Type':'application/pdf','Content-Disposition':`inline; filename="${filename}"`,'Cache-Control':'no-store'}});
+  const user=await getSession();
+  if(!user||!['Cocina','AdminCasino','AdminTotal','Gerencia'].includes(user.rol)) return NextResponse.json({error:'No autorizado'},{status:401});
+  const fecha=new URL(req.url).searchParams.get('fecha');
+  if(!validDate(fecha)) return NextResponse.json({error:'Fecha inválida'},{status:400});
+  const rows=await detalleProduccionFecha(fecha!);
+  const bytes=await generarProduccionPdf(fecha!,rows);
+  const filename=`ALEMSI-Produccion-${fecha}.pdf`;
+  return new NextResponse(bytes,{status:200,headers:{'Content-Type':'application/pdf','Content-Disposition':`inline; filename="${filename}"`,'Cache-Control':'no-store'}});
 }

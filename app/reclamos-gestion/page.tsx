@@ -9,10 +9,12 @@ const DESTINOS:Record<RolReclamo,RolReclamo[]>={AdminCasino:['Coordinacion','Ger
 const dato=(v:unknown)=>String(v??'').trim()||'No disponible';
 const fecha=(v:unknown)=>{const d=new Date(String(v||''));return Number.isNaN(d.getTime())?dato(v):new Intl.DateTimeFormat('es-CL',{timeZone:'America/Santiago',dateStyle:'medium',timeStyle:'short'}).format(d)};
 
-export default async function Page(){
-  const u=await requireUser(ROLES); const rol=u.rol as RolReclamo; const rows=await listarReclamosParaRol(rol);
+export default async function Page({searchParams}:{searchParams:Promise<{caso?:string}>}){
+  const u=await requireUser(ROLES); const rol=u.rol as RolReclamo; const q=await searchParams; const todos=await listarReclamosParaRol(rol);
+  const casoId=Number(String(q.caso||'').replace(/\D/g,''));
+  const rows=casoId?todos.filter((r:any)=>Number(r.id)===casoId):todos;
   return <AppShell user={u}><div className="space-y-4">
-    <section className="rounded-2xl border bg-white p-5"><p className="text-xs font-extrabold tracking-[.18em] text-[#1DB954]">GESTIÓN DE EXPERIENCIA</p><h1 className="text-2xl font-black">Reclamos, sugerencias y felicitaciones</h1><p className="mt-1 text-sm text-[#6B7570]">Ficha única para todos los perfiles autorizados. Los datos no registrados se muestran como no disponibles.</p></section>
+    <section className="rounded-2xl border bg-white p-5"><p className="text-xs font-extrabold tracking-[.18em] text-[#1DB954]">GESTIÓN DE EXPERIENCIA</p><h1 className="text-2xl font-black">Reclamos, sugerencias y felicitaciones</h1><p className="mt-1 text-sm text-[#6B7570]">Ficha única para todos los perfiles autorizados. Incluye referencia, datos del comensal, adjuntos e historial de gestión.</p>{casoId>0&&<a href="/reclamos-gestion" className="mt-3 inline-block rounded-lg border px-3 py-2 text-sm font-bold">← Ver todos los casos</a>}</section>
     {!rows.length&&<section className="rounded-2xl border bg-white p-5 text-sm font-bold">No hay casos disponibles para este perfil.</section>}
     {rows.map((r:any)=><article key={r.id} className="rounded-2xl border border-[#A6B0AA]/30 bg-white p-5">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-black text-[#0D9B91]">R-{String(r.id).padStart(6,'0')} · {dato(r.tipo)}</p><h2 className="text-xl font-black">{dato(r.nombre)}</h2><p className="text-sm text-[#6B7570]">{dato(r.categoria)}</p></div><div className="rounded-full bg-[#F6F3EA] px-3 py-1 text-sm font-black">{dato(r.estado)}</div></div>
@@ -21,7 +23,7 @@ export default async function Page(){
         <div className="rounded-xl bg-[#F7FAF8] p-3"><div className="text-[11px] font-black uppercase text-[#6B7570]">Teléfono</div><div className="font-bold">{dato(r.telefono)}</div></div>
         <div className="rounded-xl bg-[#F7FAF8] p-3"><div className="text-[11px] font-black uppercase text-[#6B7570]">Correo</div><div className="break-all font-bold">{dato(r.correo)}</div></div>
         <div className="rounded-xl bg-[#F7FAF8] p-3"><div className="text-[11px] font-black uppercase text-[#6B7570]">Institución</div><div className="font-bold">{dato(r.institucion)}</div></div>
-        <div className="rounded-xl bg-[#F7FAF8] p-3"><div className="text-[11px] font-black uppercase text-[#6B7570]">Código de reserva</div><div className="font-bold">No vinculado al ingresar el caso</div></div>
+        <div className="rounded-xl bg-[#F7FAF8] p-3"><div className="text-[11px] font-black uppercase text-[#6B7570]">Referencia del caso</div><div className="font-bold">R-{String(r.id).padStart(6,'0')}</div></div>
         <div className="rounded-xl bg-[#F7FAF8] p-3"><div className="text-[11px] font-black uppercase text-[#6B7570]">Fecha / hora</div><div className="font-bold">{fecha(r.fecha)}</div></div>
         <div className="rounded-xl bg-[#F7FAF8] p-3"><div className="text-[11px] font-black uppercase text-[#6B7570]">Área actual</div><div className="font-bold">{dato(r.area_actual)}</div></div>
         <div className="rounded-xl bg-[#F7FAF8] p-3"><div className="text-[11px] font-black uppercase text-[#6B7570]">Última actualización</div><div className="font-bold">{r.fecha_actualizacion?fecha(r.fecha_actualizacion):'No disponible'}</div></div>
