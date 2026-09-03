@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { performance } from 'node:perf_hooks';
 import { epochHoraChile,fechaHoraVisibleChile,fechaVisible } from '../lib/fecha-hora.ts';
-import { anticipacionParaInstitucion,fechaDentroVentanaMaxima,reservaComercialHabilitada } from '../lib/reglas/reserva.ts';
+import { anticipacionParaInstitucion,diasCorridosDelPeriodo,fechaDentroVentanaMaxima,reservaComercialHabilitada } from '../lib/reglas/reserva.ts';
 
 test('presentación usa DD-MM-AAAA y hora Chile',()=>{
   assert.equal(fechaVisible('2026-08-30'),'30-08-2026');
@@ -40,6 +40,12 @@ test('ventana máxima futura se valida en días Chile',()=>{
   assert.equal(fechaDentroVentanaMaxima('2026-09-05',6,ahora),true);
   assert.equal(fechaDentroVentanaMaxima('2026-09-06',6,ahora),false);
   assert.equal(fechaDentroVentanaMaxima('2026-08-29',6,ahora),false);
+});
+
+test('período de reserva cuenta siete días corridos entre viernes y jueves',()=>{
+  assert.equal(diasCorridosDelPeriodo(['2026-09-04','2026-09-10']),7);
+  assert.equal(diasCorridosDelPeriodo(['2026-09-04','2026-09-11']),8);
+  assert.equal(diasCorridosDelPeriodo(['2026-09-04']),1);
 });
 
 test('reglas y conversión se mantienen bajo 10 ms por operación',()=>{
