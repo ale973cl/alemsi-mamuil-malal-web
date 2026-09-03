@@ -9,10 +9,12 @@ export async function listarReclamosParaRol(rol:RolReclamo){
     : `AND (COALESCE(r.area_actual,'AdminCasino')=$1 OR EXISTS (SELECT 1 FROM reclamo_movimientos m WHERE m.reclamo_id=r.id AND m.destino_rol=$1))`;
   return query<any>(
     `SELECT r.id,r.rut,r.nombre,r.tipo,r.categoria,r.mensaje,r.fecha,r.estado,
+            c.telefono,c.correo,c.institucion,
             COALESCE(r.area_actual,'AdminCasino') area_actual,r.actualizado_por,r.fecha_actualizacion,
             COALESCE((SELECT JSON_AGG(JSON_BUILD_OBJECT('id',m.id,'actor',m.actor,'actor_rol',m.actor_rol,'accion',m.accion,'destino_rol',m.destino_rol,'mensaje',m.mensaje,'estado',m.estado_resultante,'fecha',m.fecha) ORDER BY m.id) FROM reclamo_movimientos m WHERE m.reclamo_id=r.id),'[]'::json) movimientos,
             COALESCE((SELECT JSON_AGG(JSON_BUILD_OBJECT('id',a.id,'movimiento_id',a.movimiento_id,'nombre',a.nombre_archivo,'mime',a.mime_type,'cargado_por',a.cargado_por,'cargado_rol',a.cargado_rol,'fecha',a.fecha_carga) ORDER BY a.id) FROM reclamo_adjuntos a WHERE a.reclamo_id=r.id),'[]'::json) adjuntos
        FROM reclamos_sugerencias r
+       LEFT JOIN comensales c ON c.rut=r.rut
       WHERE 1=1 ${filtro}
       ORDER BY CASE WHEN r.estado='Cerrado' THEN 1 ELSE 0 END,r.id DESC
       LIMIT 100`,

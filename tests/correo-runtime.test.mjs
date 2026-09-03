@@ -4,10 +4,12 @@ import { readFileSync } from 'node:fs';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
-test('Reserva envía después de persistir y mantiene el enlace del pago_token', () => {
+test('Reserva persiste antes de programar el correo y mantiene el enlace del pago_token', () => {
   const action=read('app/reserva/actions.ts');
-  assert.ok(action.indexOf('crearOActualizarReserva(input)') < action.lastIndexOf('enviarCorreoSmtp'));
-  assert.match(action,/await enviarCorreoSmtp\(correoReservaConfirmada/);
+  const persist=action.indexOf('crearOActualizarReserva(input)');
+  const deferred=action.indexOf('after(async () =>');
+  const notify=action.indexOf('notificarReservaConfirmadaDinamica(mensaje)');
+  assert.ok(persist >= 0 && deferred > persist && notify > deferred);
   assert.match(action,/RESERVA_SMTP_START/);
   assert.match(action,/RESERVA_SMTP_OK/);
   assert.match(action,/RESERVA_SMTP_ERROR/);
