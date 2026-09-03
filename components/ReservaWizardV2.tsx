@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { cargarMinutaDisponible, confirmarReserva, identificarComensal, registrarNuevoComensal } from '@/app/reserva/actions';
 import CorreoSpamAviso from '@/components/CorreoSpamAviso';
-import type { EleccionReserva } from '@/lib/reglas/reserva';
+import { diasCorridosDelPeriodo, type EleccionReserva } from '@/lib/reglas/reserva';
 
 type Perfil = Awaited<ReturnType<typeof identificarComensal>>;
 type Minuta = Awaited<ReturnType<typeof cargarMinutaDisponible>>;
@@ -87,7 +87,20 @@ export default function ReservaWizardV2({initialRut=''}:{initialRut?:string}){
   },[initialRut]);
 
   function cambiarMes(delta:number){const next=moverMes(mesCursor,delta);setError('');startTransition(()=>cargarMes(next));}
-  function toggleFecha(fecha:string){if(!fechasDisponibles.has(fecha))return;setFechas(current=>current.includes(fecha)?current.filter(x=>x!==fecha):[...current,fecha].sort());}
+  function toggleFecha(fecha:string){
+    if(!fechasDisponibles.has(fecha))return;
+    setFechas(current=>{
+      if(current.includes(fecha)){setError('');return current.filter(x=>x!==fecha);}
+      const siguiente=[...current,fecha].sort();
+      const maxDias=Math.max(1,Number(minuta?.reglas.max_dias_consecutivos)||7);
+      if(siguiente.length>maxDias||diasCorridosDelPeriodo(siguiente)>maxDias){
+        setError(`Puedes reservar un período de hasta ${maxDias} días corridos (por ejemplo, de viernes a jueves).`);
+        return current;
+      }
+      setError('');
+      return siguiente;
+    });
+  }
   function key(fecha:string,servicio:string){return `${fecha}|${servicio}`;}
   function elegir(row:(typeof rows)[number]){if(!fechaActual)return;const k=key(fechaActual,row.servicio);setDecisiones(c=>({...c,[k]:'si'}));setElecciones(c=>({...c,[k]:{fecha:fechaActual,servicio:row.servicio,plato:row.plato,tipo_opcion:row.tipo_opcion??undefined}}));}
   function noConsumir(servicio:string){if(!fechaActual)return;const k=key(fechaActual,servicio);setDecisiones(c=>({...c,[k]:'no'}));setElecciones(c=>{const next={...c};delete next[k];return next;});}
@@ -113,9 +126,9 @@ export default function ReservaWizardV2({initialRut=''}:{initialRut?:string}){
 
         {bloqueado&&etapa==='fechas'&&<div className="rounded-2xl border border-[#D4AF37]/50 bg-[#D4AF37]/10 p-5"><h3 className="font-extrabold">Nueva reserva bloqueada por pago pendiente</h3><p className="mt-1 text-sm text-[#6B7570]">Finanzas libera el RUT al validar el pago.</p><div className="mt-4 space-y-2">{deudas.map(d=><div key={d.referencia_reserva} className="rounded-xl bg-white p-3 text-sm"><b>{d.referencia_reserva}</b> · {money(Number(d.monto_pendiente))} · {d.estados}</div>)}</div></div>}
 
-        {!bloqueado&&etapa==='fechas'&&<div><div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wider text-[#1DB954]">Paso 1</p><h3 className="text-xl font-extrabold">Selecciona las fechas</h3></div><p className="text-sm text-[#6B7570]">El mes se muestra completo. Solo los días destacados se pueden reservar.</p></div>
+        {!bloqueado&&etapa==='fechas'&&<div><div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wider text-[#1DB954]">Paso 1</p><h3 className="text-xl font-extrabold">Selecciona las fechas</h3></div><p className="text-sm text-[#6B7570]">Puedes reservar hasta 7 días corridos; por ejemplo, de viernes a jueves.</p></div>
           <div className="mt-5 rounded-2xl border bg-white p-3 sm:p-5"><div className="flex items-center justify-between gap-2"><button onClick={()=>cambiarMes(-1)} disabled={pending} className="min-h-10 rounded-lg border px-3 font-bold">←</button><div className="text-center"><h4 className="text-lg font-black capitalize">{tituloMes}</h4>{finDeMes&&<button onClick={()=>cambiarMes(1)} className="mt-1 text-xs font-bold text-[#0E2A23] underline">Ver mes siguiente →</button>}</div><button onClick={()=>cambiarMes(1)} disabled={pending} className="min-h-10 rounded-lg border px-3 font-bold">→</button></div>
-          <div className="mt-4 grid grid-cols-7 gap-1 text-center">{DIAS.map((d,i)=><div key={`${d}-${i}`} className="py-1 text-[11px] font-black text-[#6B7570]">{d}</div>)}{calendario.map((cell,i)=>{if(!cell)return <div key={`x-${i}`} className="min-h-12 sm:min-h-14"/>;const disponible=fechasDisponibles.has(cell.iso);const active=fechas.includes(cell.iso);const esHoy=cell.iso===hoy;const pasado=cell.iso<hoy;return <button key={cell.iso} disabled={!disponible||pasado||pending} onClick={()=>toggleFecha(cell.iso)} title={disponible?`Disponible ${fechaCorta(cell.iso)}`:`No disponible ${fechaCorta(cell.iso)}`} className={`relative min-h-12 rounded-lg border text-sm font-black transition sm:min-h-14 ${active?'border-[#1DB954] bg-[#1DB954] text-[#071814]':disponible&&!pasado?'border-[#1DB954]/55 bg-[#1DB954]/10 text-[#0E2A23] hover:bg-[#1DB954]/20':'border-[#A6B0AA]/20 bg-[#F4F5F3] text-[#A6B0AA]'} ${esHoy?'ring-2 ring-[#D4AF37] ring-offset-1':''}`}><span>{cell.day}</span>{disponible&&!pasado&&<span className="absolute bottom-1 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-[#1DB954]"/>}</button>;})}</div>
+          <div className="mt-4 grid grid-cols-7 gap-1 text-center">{DIAS.map((d,i)=><div key={`${d}-${i}`} className="py-1 text-[11px] font-black text-[#6B7570]">{d}</div>)}{calendario.map((cell,i)=>{if(!cell)return <div key={`x-${i}`} className="min-h-12 sm:min-h-14"/>;const disponible=fechasDisponibles.has(cell.iso);const active=fechas.includes(cell.iso);const esHoy=cell.iso===hoy;const pasado=cell.iso<hoy;return <button key={cell.iso} disabled={!disponible||pasado||pending} aria-pressed={active} onClick={()=>toggleFecha(cell.iso)} title={active?`Seleccionado ${fechaCorta(cell.iso)}`:disponible?`Disponible ${fechaCorta(cell.iso)}`:`No disponible ${fechaCorta(cell.iso)}`} className={`relative min-h-12 rounded-lg border text-sm font-black transition sm:min-h-14 ${active?'border-[#0B2D5B] bg-[#0B2D5B] text-white shadow-md ring-2 ring-[#0B2D5B]/25 ring-offset-1':disponible&&!pasado?'border-[#1DB954]/55 bg-[#1DB954]/10 text-[#0E2A23] hover:bg-[#1DB954]/20':'border-[#A6B0AA]/20 bg-[#F4F5F3] text-[#A6B0AA]'} ${esHoy&&!active?'ring-2 ring-[#D4AF37] ring-offset-1':''}`}><span>{cell.day}</span>{active?<span className="absolute right-1 top-0.5 text-[11px] text-white" aria-hidden="true">✓</span>:disponible&&!pasado&&<span className="absolute bottom-1 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-[#1DB954]"/>}</button>;})}</div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-[#6B7570]"><span><b className="text-[#0E2A23]">{fechas.length}</b> día(s) seleccionados</span><span>Internamente: YYYY-MM-DD · Pantalla: DD-MM-YYYY</span></div></div>
           {!fechasDisponibles.size&&<p className="mt-4 rounded-xl bg-[#A6B0AA]/10 p-4 text-sm text-[#6B7570]">No hay días reservables publicados en este mes. Puedes avanzar al mes siguiente.</p>}
           <div className="mt-5 flex justify-end"><button onClick={continuarFechas} disabled={!fechas.length} className="min-h-12 w-full rounded-xl bg-[#1DB954] px-6 font-extrabold disabled:opacity-40 sm:w-auto">Continuar con {fechas.length} día(s)</button></div></div>}
