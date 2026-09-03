@@ -3,10 +3,10 @@ import { inTransaction, query } from '@/lib/db/pool';
 
 export type RolReclamo='AdminCasino'|'AdminTotal'|'Coordinacion'|'Gerencia'|'Finanzas';
 
-export async function listarReclamosParaRol(rol:RolReclamo){
-  const filtro=rol==='AdminCasino'||rol==='AdminTotal'
-    ? ''
-    : `AND (COALESCE(r.area_actual,'AdminCasino')=$1 OR EXISTS (SELECT 1 FROM reclamo_movimientos m WHERE m.reclamo_id=r.id AND m.destino_rol=$1))`;
+export async function listarReclamosParaRol(_rol:RolReclamo){
+  // Los perfiles autorizados comparten una ficha única. La matriz determina quién
+  // gestiona/recibe el caso, pero no debe ocultar el expediente a Gerencia,
+  // Coordinación o Finanzas cuando el usuario ya tiene permiso de Reclamos.
   return query<any>(
     `SELECT r.id,r.rut,r.nombre,r.tipo,r.categoria,r.mensaje,r.fecha,r.estado,
             c.telefono,c.correo,c.institucion,
@@ -15,10 +15,8 @@ export async function listarReclamosParaRol(rol:RolReclamo){
             COALESCE((SELECT JSON_AGG(JSON_BUILD_OBJECT('id',a.id,'movimiento_id',a.movimiento_id,'nombre',a.nombre_archivo,'mime',a.mime_type,'cargado_por',a.cargado_por,'cargado_rol',a.cargado_rol,'fecha',a.fecha_carga) ORDER BY a.id) FROM reclamo_adjuntos a WHERE a.reclamo_id=r.id),'[]'::json) adjuntos
        FROM reclamos_sugerencias r
        LEFT JOIN comensales c ON c.rut=r.rut
-      WHERE 1=1 ${filtro}
       ORDER BY CASE WHEN r.estado='Cerrado' THEN 1 ELSE 0 END,r.id DESC
-      LIMIT 100`,
-    rol==='AdminCasino'||rol==='AdminTotal'?[]:[rol],
+      LIMIT 200`,
   );
 }
 
@@ -64,4 +62,17 @@ export async function obtenerAdjuntoReclamo(id:number){
   const rows=await query<{id:number;reclamo_id:number;nombre_archivo:string;mime_type:string;contenido:Buffer}>(
     `SELECT id,reclamo_id,nombre_archivo,mime_type,contenido FROM reclamo_adjuntos WHERE id=$1 LIMIT 1`,[id]);
   return rows[0]||null;
+}
+
+export async function listarReclamosComensal(rut:string){
+  return query<{
+    id:number;tipo:string;categoria:string;mensaje:string;fecha:string;estado:string;
+  }>(
+    `SELECT id,tipo,categoria,mensaje,fecha,estado
+       FROM reclamos_sugerencias
+      WHERE rut=$1
+      ORDER BY id DESC
+      LIMIT 20`,
+    [rut],
+  );
 }

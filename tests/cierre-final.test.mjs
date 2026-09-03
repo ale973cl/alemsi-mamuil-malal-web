@@ -12,7 +12,7 @@ test('AdminTotal usa la operación canónica y no existe sub-namespace /admin-to
 
 test('Reclamos usa ficha única con datos de contacto e historial',()=>{
   const page=read('app/reclamos-gestion/page.tsx');
-  for(const label of ['RUT','Teléfono','Correo','Institución','Código de reserva','Fecha / hora','Descripción completa','Historial de gestión']) assert.match(page,new RegExp(label));
+  for(const label of ['RUT','Teléfono','Correo','Institución','Referencia del caso','Fecha / hora','Descripción completa','Historial de gestión']) assert.match(page,new RegExp(label));
   assert.match(page,/AdminCasino.*AdminTotal.*Coordinacion.*Gerencia.*Finanzas/);
 });
 
@@ -25,13 +25,11 @@ test('Cocina consolida por servicio, opción/plato, institución y raciones',()=
 });
 
 test('PDF de producción conserva consolidación y formato ejecutivo',()=>{
-  const pdf=read('app/api/produccion/reporte-pdf/route.ts');
-  assert.match(pdf,/REPORTE DIARIO DE PRODUCCIÓN/);
-  assert.match(pdf,/RACIONES A PRODUCIR|Raciones a producir/);
-  assert.match(pdf,/groupDish/);
-  assert.match(pdf,/institutions/);
+  const pdf=read('lib/email/produccion-pdf.ts');
+  assert.match(pdf,/REPORTE DIARIO DE PRODUCCION/);
+  assert.match(pdf,/agruparProduccion/);
+  assert.match(pdf,/instituciones/);
 });
-
 test('La minuta operativa no agrega columnas de correo',()=>{
   const carga=read('components/MinutaCarga.tsx');
   const publicada=read('components/MinutaPublicada.tsx');

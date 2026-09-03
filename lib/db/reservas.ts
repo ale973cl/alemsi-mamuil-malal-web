@@ -8,6 +8,7 @@ import {
   distribuirPrecioDia,
   limpiarRut,
   maxConsecutivosFechas,
+  consolidarDeudaPasada,
   normalizarRutDb,
   reservaComercialHabilitada,
   tipoInstitucion,
@@ -31,32 +32,32 @@ export async function obtenerReglasReserva(): Promise<ReglasReserva> {
 }
 
 export async function obtenerDeudaBloqueante(rut: string) {
-  return query<{
+  const lineas = await query<{
     referencia_reserva:string;
-    codigo_reserva:string;
-    primera_fecha:string;
-    ultima_fecha:string;
+    fecha:string;
+    servicio:string;
     monto_pendiente:number;
-    estados:string;
+    estado:string;
   }>(
-    `SELECT codigo_reserva AS referencia_reserva,
-            codigo_reserva,
-            MIN(fecha)::text AS primera_fecha,
-            MAX(fecha)::text AS ultima_fecha,
-            SUM(COALESCE(precio_aplicado,precio,0))::numeric AS monto_pendiente,
-            STRING_AGG(DISTINCT COALESCE(NULLIF(TRIM(estado_pago),''),'Pendiente'), ', ') AS estados
+    `SELECT COALESCE(NULLIF(codigo_reserva,''),referencia_reserva) AS referencia_reserva,
+            fecha::text AS fecha,
+            servicio,
+            COALESCE(precio_aplicado,precio,0)::numeric AS monto_pendiente,
+            COALESCE(NULLIF(TRIM(estado_pago),''),'Pendiente') AS estado
        FROM solicitudes
       WHERE rut=$1
         AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA'
         AND COALESCE(precio_aplicado,precio,0)>0
         AND COALESCE(tipo_registro,'RESERVA_COMERCIAL')='RESERVA_COMERCIAL'
-        AND COALESCE(NULLIF(codigo_reserva,''),'')<>''
+        AND COALESCE(NULLIF(codigo_reserva,''),NULLIF(referencia_reserva,''),'')<>''
         AND LOWER(TRIM(COALESCE(estado_pago,'Pendiente'))) NOT IN
             ('pagado','aprobado','no aplica','costo asumido','costo asumido / no cobrable')
-      GROUP BY codigo_reserva
-      ORDER BY MIN(fecha),codigo_reserva`,
+      ORDER BY fecha,servicio,id`,
     [normalizarRutDb(rut)],
   );
+  // Solo una deuda de un servicio que ya ocurrió puede bloquear nuevas reservas.
+  // Una reserva futura recién creada puede estar Pendiente, pero no es una deuda vencida.
+  return consolidarDeudaPasada(lineas);
 }
 
 async function excepcionReservaActiva(rut: string, fecha: string): Promise<boolean> {

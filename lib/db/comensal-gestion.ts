@@ -11,16 +11,18 @@ import { enviarCorreoSmtp } from '@/lib/email/smtp';
 export async function listarMisReservas(rutInput:string){ if(!validarRutM11(rutInput)) throw new Error('RUT inválido.'); const rut=normalizarRutDb(rutInput); const [cab,lineas]=await Promise.all([query<any>(`SELECT s.codigo_reserva AS referencia_reserva,s.codigo_reserva,MIN(s.fecha) desde,MAX(s.fecha) hasta,COUNT(*) FILTER (WHERE COALESCE(s.estado_reserva,'ACTIVA')='ACTIVA') servicios_activos,STRING_AGG(DISTINCT COALESCE(NULLIF(s.estado_pago,''),'Pendiente'), ', ') estado_pago,STRING_AGG(DISTINCT COALESCE(NULLIF(s.estado_reserva,''),'ACTIVA'), ', ') estado_reserva,MAX(NULLIF(s.pago_token,'')) pago_token,(SELECT cp.estado FROM comprobantes_pago cp WHERE cp.referencia_reserva=s.codigo_reserva ORDER BY cp.id DESC LIMIT 1) comprobante_estado FROM solicitudes s WHERE s.rut=$1 AND COALESCE(NULLIF(s.codigo_reserva,''),'')<>'' GROUP BY s.codigo_reserva ORDER BY MAX(s.fecha) DESC`,[rut]),query<any>(`SELECT id,codigo_reserva AS referencia_reserva,codigo_reserva,fecha,servicio,plato_reservado,estado_reserva,COALESCE(NULLIF(estado_pago,''),'Pendiente') estado_pago FROM solicitudes WHERE rut=$1 ORDER BY fecha DESC,servicio,id`,[rut])]); return {rut,cab,lineas}; }
 export async function cancelarServicio(rutInput:string,id:number){ if(!validarRutM11(rutInput)) throw new Error('RUT inválido.'); const rut=normalizarRutDb(rutInput); const rows=await query<any>(`SELECT id,fecha,servicio,codigo_reserva AS referencia_reserva,codigo_reserva,COALESCE(estado_reserva,'ACTIVA') estado_reserva FROM solicitudes WHERE id=$1 AND rut=$2 LIMIT 1`,[id,rut]); const r=rows[0]; if(!r||r.estado_reserva!=='ACTIVA') throw new Error('Servicio no disponible para cancelar.'); const reglas=await obtenerReglasReserva(); if(!cancelacionDirectaHabilitada(String(r.fecha),String(r.servicio),Number(reglas.cancelacion_directa_horas))) throw new Error('El servicio está fuera de la ventana de cancelación directa.'); await inTransaction(async c=>{await c.query(`UPDATE solicitudes SET estado_reserva='CANCELADA',fecha_modificacion=$1,modificado_por=$2 WHERE id=$3 AND rut=$2 AND COALESCE(estado_reserva,'ACTIVA')='ACTIVA'`,[new Date().toISOString(),rut,id]); await registrarAuditoriaTx(c,{usuario:rut,accion:'CANCELAR_SERVICIOS'});}); }
 
-async function notificarIngresoInterno(registro:{id:number;rut:string;nombre:string;tipo:string;categoria:string;mensaje:string;fecha:string}){
+async function notificarIngresoInterno(registro:{id:number;rut:string;nombre:string;tipo:string;categoria:string;mensaje:string;fecha:string},origin?:string){
   const base=await obtenerDestinatariosConfigurados('Reclamos');
+  const coordinacion=await obtenerDestinatariosConfigurados('Coordinacion');
   const pago=String(registro.categoria||'').toLocaleLowerCase('es-CL').includes('pago');
   const finanzas=pago?await obtenerDestinatariosConfigurados('Finanzas'):[];
-  const destinatarios=[...new Set([...base,...finanzas])];
+  const destinatarios=[...new Set([...base,...coordinacion,...finanzas])];
   if(!destinatarios.length){
     console.info('RECLAMO_INTERNAL_SMTP_SKIP','sin_destinatarios_configurados');
     return;
   }
   const folio=`R-${String(registro.id).padStart(6,'0')}`;
+  const seguimiento=origin?`${origin.replace(/\/$/,'')}/reclamos-gestion?caso=${encodeURIComponent(folio)}`:'';
   const text=[
     `Nuevo caso ${folio}`,
     `Tipo: ${registro.tipo}`,
@@ -30,7 +32,8 @@ async function notificarIngresoInterno(registro:{id:number;rut:string;nombre:str
     `Fecha: ${registro.fecha}`,
     `Mensaje: ${registro.mensaje}`,
     'El caso quedó registrado en ALEMSI Casino para seguimiento.',
-  ].join('\n\n');
+    seguimiento?`Abrir ficha de seguimiento: ${seguimiento}`:'',
+  ].filter(Boolean).join('\n\n');
   for(const to of destinatarios){
     const result=await enviarCorreoSmtp({to,subject:`ALEMSI · Nuevo ${registro.tipo} · ${folio}`,text});
     if(result.ok) console.info('RECLAMO_INTERNAL_SMTP_OK',to,folio);
@@ -38,7 +41,7 @@ async function notificarIngresoInterno(registro:{id:number;rut:string;nombre:str
   }
 }
 
-export async function guardarReclamo(rutInput:string,tipo:string,categoria:string,mensaje:string){
+export async function guardarReclamo(rutInput:string,tipo:string,categoria:string,mensaje:string,origin?:string){
   if(!validarRutM11(rutInput)) throw new Error('RUT inválido.'); if(!mensaje.trim()) throw new Error('Escribe un mensaje.');
   const rut=normalizarRutDb(rutInput); const c=(await query<any>(`SELECT nombre,correo FROM comensales WHERE rut=$1`,[rut]))[0]; if(!c) throw new Error('Comensal no encontrado.');
   const fecha=new Date().toISOString();
@@ -50,7 +53,7 @@ export async function guardarReclamo(rutInput:string,tipo:string,categoria:strin
     console.error('RECLAMO_MOVIMIENTO_INICIAL_ERROR',error instanceof Error?error.message:'unknown');
   }
   try{
-    await notificarIngresoInterno(registro);
+    await notificarIngresoInterno(registro,origin);
   }catch(error){
     console.error('RECLAMO_INTERNAL_SMTP_ERROR',error instanceof Error?error.message:'unknown');
   }
