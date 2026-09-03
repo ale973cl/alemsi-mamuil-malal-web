@@ -238,6 +238,17 @@ export function maxConsecutivosFechas(fechas: string[]): number {
   return mejor;
 }
 
+export function diasCorridosDelPeriodo(fechas: string[]): number {
+  const ordenadas = [...new Set(fechas)].sort();
+  if (!ordenadas.length) return 0;
+  const epoch = (iso: string) => {
+    const [y, m, d] = iso.split('-').map(Number);
+    if (!y || !m || !d) throw new Error(`Fecha de reserva inválida: ${iso}`);
+    return Date.UTC(y, m - 1, d, 12);
+  };
+  return Math.floor((epoch(ordenadas.at(-1)!) - epoch(ordenadas[0])) / 86_400_000) + 1;
+}
+
 export type EleccionReserva = {
   fecha: string;
   servicio: string;
