@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import AppShell from '@/components/AppShell';
 import MinutaCarga from '@/components/MinutaCarga';
 import MinutaPublicada from '@/components/MinutaPublicada';
@@ -19,11 +20,17 @@ function cicloViernesJueves(){const hoy=iso(new Date());const [y,m,d]=hoy.split(
 function fechaValida(value?:string){return Boolean(value&&/^\d{4}-\d{2}-\d{2}$/.test(value))}
 const tabs=[['minuta','Minuta'],['solicitudes','Solicitudes / excepciones'],['reclamos','Reclamos'],['reglas','Reglas de reserva'],['historico','Histórico']] as const;
 type Tab=(typeof tabs)[number][0];
+function redirigirReclamosLegacy(tab:Tab,caso?:string){
+  if(tab==='reclamos') redirect(`/reclamos-gestion?${caso?`caso=${encodeURIComponent(caso)}`:''}`);
+}
 
 export default async function Page({searchParams}:{searchParams:Promise<{inicio?:string;fin?:string;tab?:string;caso?:string;pagina?:string}>}){
   const u=await requireUser(['AdminCasino','AdminTotal']);
   const params=await searchParams;const vigenteRango=cicloViernesJueves();
   const tab:Tab=tabs.some(([key])=>key===params.tab)?params.tab as Tab:'minuta';
+  // Reclamos tiene una sola bandeja operacional para todos los perfiles.
+  // Conservamos esta redirección para enlaces y marcadores antiguos del Admin Casino.
+  redirigirReclamosLegacy(tab,params.caso);
   const hoy=iso(new Date());
   const inicioSolicitado=fechaValida(params.inicio)?params.inicio!:vigenteRango[0];
   const ini=tab==='minuta'&&inicioSolicitado<hoy?hoy:inicioSolicitado;
@@ -48,7 +55,7 @@ export default async function Page({searchParams}:{searchParams:Promise<{inicio?
     const enProduccion=String(actual?.estado||'').trim().toLocaleLowerCase('es-CL')==='en producción';
     return {fecha,enProduccion,detalle:enProduccion?await detalleJornada(fecha):[]};
   })):[];
-  const href=(key:Tab)=>`/admin-casino?tab=${key}&inicio=${ini}&fin=${fin}`;
+  const href=(key:Tab)=>key==='reclamos'?'/reclamos-gestion':`/admin-casino?tab=${key}&inicio=${ini}&fin=${fin}`;
 
   return <AppShell user={u}><div className="space-y-5">
     <section className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-extrabold tracking-[.18em] text-[#1DB954]">ADMIN CASINO</p><h1 className="text-2xl font-black text-[#0E2A23]">Operación y minutas</h1><p className="mt-1 text-sm text-[#6B7570]">Minuta oficial, excepciones y reglas operativas desde una sola fuente.</p></div><RelojChile epochServidor={Date.now()}/></section>
