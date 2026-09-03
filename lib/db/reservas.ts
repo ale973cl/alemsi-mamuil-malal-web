@@ -6,6 +6,7 @@ import { validarPlatoPublicado } from '@/lib/db/minutas';
 import {
   REGLAS_RESERVA_DEFAULT,
   fechaDentroVentanaMaxima,
+  diasCorridosDelPeriodo,
   distribuirPrecioDia,
   limpiarRut,
   maxConsecutivosFechas,
@@ -143,8 +144,9 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
     if (pendientes.length) {
       throw new Error('Tienes una reserva activa pendiente de validación o pago. Debes regularizarla antes de crear otra reserva.');
     }
-    if (maxConsecutivosFechas(fechas) > Number(reglas.max_dias_consecutivos)) {
-      throw new Error(`Máximo permitido: ${reglas.max_dias_consecutivos} días consecutivos.`);
+    const maxDias = Number(reglas.max_dias_consecutivos);
+    if (fechas.length > maxDias || diasCorridosDelPeriodo(fechas) > maxDias || maxConsecutivosFechas(fechas) > maxDias) {
+      throw new Error(`Cada reserva puede abarcar como máximo ${maxDias} días corridos (por ejemplo, de viernes a jueves).`);
     }
   }
 
