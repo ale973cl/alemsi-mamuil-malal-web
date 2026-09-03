@@ -22,6 +22,22 @@ export async function resumenAdmin(){
     (SELECT COUNT(*) FROM solicitudes_extraordinarias WHERE estado='PENDIENTE') solicitudes`);
   return rows[0]||{};
 }
+export type UsuarioRecuperacion={username:string;nombre:string;rol:string;correo:string;activo:boolean;correo_compartido:boolean};
+export async function usuariosRecuperacion(){
+  return query<UsuarioRecuperacion>(`SELECT u.username,u.nombre,u.rol,COALESCE(u.correo,'') correo,COALESCE(u.activo,1)=1 activo,
+    CASE WHEN COALESCE(btrim(u.correo),'')='' THEN false ELSE (SELECT COUNT(*)>1 FROM usuarios x WHERE LOWER(btrim(x.correo))=LOWER(btrim(u.correo)) AND COALESCE(x.activo,1)=1) END correo_compartido
+    FROM usuarios u ORDER BY COALESCE(u.activo,1) DESC,u.rol,u.nombre`);
+}
+export async function guardarCorreoRecuperacion(username:string,correo:string,actor:string){
+  const email=correo.trim().toLocaleLowerCase('es-CL');
+  if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('El correo no tiene un formato válido.');
+  await inTransaction(async c=>{
+    if(email){const repetido=await c.query(`SELECT username FROM usuarios WHERE LOWER(btrim(correo))=$1 AND username<>$2 AND COALESCE(activo,1)=1 LIMIT 1`,[email,username]);if(repetido.rows[0])throw new Error('Ese correo ya está asignado a otro usuario activo. Cada cuenta debe tener un correo propio.');}
+    const updated=await c.query(`UPDATE usuarios SET correo=NULLIF($1,'') WHERE username=$2 RETURNING username`,[email,username]);
+    if(!updated.rows[0]) throw new Error('El usuario no existe.');
+    await registrarAuditoriaTx(c,{usuario:actor,accion:`ACTUALIZAR_CORREO_RECUPERACION:${username}`});
+  });
+}
 export async function minutasPeriodo(inicio:string,fin:string,soloOperativasDesde?:string){
   return query<any>(`SELECT m.id,m.fecha,m.servicio,m.tipo_opcion,m.plato,COALESCE(m.estado,'PUBLICABLE') estado FROM minutas m WHERE m.activo=1 AND m.fecha BETWEEN $1 AND $2 ${soloOperativasDesde?`AND m.fecha >= $3 AND NOT EXISTS (SELECT 1 FROM jornadas_produccion j WHERE j.fecha=m.fecha AND (j.fin_at IS NOT NULL OR UPPER(TRIM(COALESCE(j.estado,'')))='FINALIZADO'))`:''} ORDER BY m.fecha,CASE m.servicio WHEN 'Desayuno' THEN 1 WHEN 'Almuerzo' THEN 2 WHEN 'Once' THEN 3 WHEN 'Cena' THEN 4 ELSE 5 END,m.tipo_opcion,m.id`,soloOperativasDesde?[inicio,fin,soloOperativasDesde]:[inicio,fin]);
 }
