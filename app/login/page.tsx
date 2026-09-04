@@ -28,11 +28,11 @@ export default async function Login({
       </header>
 
       {!mostrarPersonal ? (
-        <section className="mx-auto grid h-full min-h-0 w-full max-w-5xl grid-rows-[minmax(0,.9fr)_minmax(0,1.1fr)] overflow-hidden rounded-[24px] border border-[#0D9B91]/20 bg-white shadow-lg md:grid-cols-[1.15fr_.85fr] md:grid-rows-1">
-          <div className="flex min-h-0 flex-col justify-center p-5 sm:p-7 md:p-9">
-            <h1 className="text-2xl font-black leading-tight sm:text-3xl md:text-4xl">Ingreso comensal</h1>
-            <p className="mt-2 max-w-lg text-sm leading-5 text-[#566B69] sm:text-base">Haz tu reserva de forma sencilla antes de subir al complejo.</p>
-            <Link href="/reserva" className="mt-5 w-full rounded-xl bg-[#0D9B91] px-7 py-3.5 text-center text-lg font-black text-white shadow-sm transition hover:bg-[#087A73] sm:w-fit sm:min-w-56">Haz tu reserva</Link>
+        <section className="mx-auto grid h-full min-h-0 w-full max-w-5xl grid-rows-[minmax(0,.9fr)_minmax(0,1.1fr)] overflow-hidden rounded-[24px] border border-[#0D9B91]/20 bg-white shadow-lg md:grid-cols-2 md:grid-rows-1">
+          <div className="flex min-h-0 flex-col items-center justify-center p-5 text-center sm:p-7 md:p-9">
+            <h1 className="text-3xl font-black leading-tight sm:text-4xl md:text-5xl">Ingreso comensal</h1>
+            <p className="mt-3 max-w-md text-base font-semibold leading-6 text-[#425F65] sm:text-lg md:text-xl">Haz tu reserva de forma sencilla antes de subir al complejo.</p>
+            <Link href="/reserva" className="mt-6 w-full max-w-sm rounded-2xl bg-[#0D9B91] px-8 py-4 text-center text-xl font-black text-white shadow-md transition hover:bg-[#087A73] sm:min-w-64 sm:w-fit">Haz tu reserva</Link>
           </div>
 
           <div className="flex min-h-0 items-center justify-center overflow-hidden bg-gradient-to-br from-[#0B2D5B] to-[#0D756F] p-3 md:p-6">
@@ -43,7 +43,7 @@ export default async function Login({
                 width={180}
                 height={187}
                 priority
-                className="mx-auto h-auto w-28 drop-shadow-xl sm:w-32 md:w-44"
+                className="mx-auto h-auto w-36 drop-shadow-xl sm:w-44 md:w-56"
               />
               <p className="mt-1 hidden text-sm font-bold text-white/90 sm:block">Tu reserva, simple y anticipada</p>
             </div>
