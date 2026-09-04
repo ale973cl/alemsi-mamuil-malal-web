@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { loginAction } from '@/app/actions/auth';
 
@@ -10,67 +11,62 @@ export default async function Login({
   const mostrarPersonal = q.personal === '1' || Boolean(q.error) || Boolean(q.clave);
 
   return (
-    <main className="min-h-screen bg-[#EEF7F6] px-4 py-5 text-[#0B2D5B] md:px-8 md:py-8">
-      <header className="mx-auto flex max-w-6xl items-center justify-between gap-4">
+    <main className="min-h-screen bg-[#EEF7F6] px-4 py-5 text-[#0B2D5B] md:px-8">
+      <header className="mx-auto flex max-w-5xl items-center justify-between gap-4">
         <div>
-          <p className="text-sm font-black tracking-[.22em] text-[#0D9B91]">ALEMSI</p>
-          <p className="text-xs font-bold text-[#4C6664]">Casino Mamuil Malal</p>
+          <p className="text-sm font-black tracking-[.2em] text-[#0D9B91]">ALEMSI</p>
+          <p className="text-xs font-semibold text-[#566B69]">Casino Mamuil Malal</p>
         </div>
         <Link
           href={mostrarPersonal ? '/login' : '/login?personal=1#ingreso-alemsi'}
-          className="rounded-lg border border-[#0B2D5B]/25 bg-white px-3 py-2 text-xs font-bold text-[#0B2D5B] shadow-sm transition hover:border-[#0D9B91] hover:text-[#087A73]"
+          className="rounded-lg border border-[#0B2D5B]/20 bg-white px-3 py-2 text-xs font-bold shadow-sm transition hover:border-[#0D9B91] hover:text-[#087A73]"
         >
-          {mostrarPersonal ? 'Volver al portal comensal' : 'Ingreso ALEMSI'}
+          {mostrarPersonal ? 'Volver' : 'Ingreso ALEMSI'}
         </Link>
       </header>
 
       {!mostrarPersonal ? (
-        <section className="mx-auto mt-5 max-w-6xl overflow-hidden rounded-[28px] border border-[#0D9B91]/20 bg-white shadow-xl md:mt-8">
-          <div className="grid md:grid-cols-[1.12fr_.88fr]">
-            <div className="bg-[#0B2D5B] p-8 text-white md:p-14">
-              <span className="inline-flex rounded-full bg-[#0D9B91]/25 px-3 py-1 text-xs font-black tracking-[.14em] text-[#9BF1E8]">MARCHA BLANCA</span>
-              <h1 className="mt-5 max-w-2xl text-4xl font-black leading-tight md:text-5xl">Reserva tu alimentación antes de subir al complejo</h1>
-              <p className="mt-5 max-w-xl text-base leading-7 text-white/85 md:text-lg">Selecciona desde tu casa las fechas, el almuerzo y/o la cena. Revisa previamente la minuta y recibe el detalle de tu reserva por correo.</p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <Link href="/reserva" className="rounded-xl bg-[#12A89A] px-6 py-4 text-center text-lg font-black text-white shadow-sm transition hover:bg-[#0D8F83]">Realizar una reserva</Link>
-                <Link href="/mis-reservas" className="rounded-xl border border-white/35 px-6 py-4 text-center font-bold text-white transition hover:bg-white/10">Gestionar mis reservas</Link>
-              </div>
+        <section className="mx-auto mt-5 grid max-w-5xl overflow-hidden rounded-[24px] border border-[#0D9B91]/20 bg-white shadow-lg md:mt-7 md:grid-cols-[1.15fr_.85fr]">
+          <div className="flex flex-col justify-center p-7 md:p-10">
+            <span className="w-fit rounded-full bg-[#E2F5F2] px-3 py-1 text-[11px] font-black tracking-[.12em] text-[#087A73]">MARCHA BLANCA</span>
+            <h1 className="mt-4 text-3xl font-black leading-tight md:text-4xl">Ingreso comensal</h1>
+            <p className="mt-2 text-lg font-bold text-[#244A5A]">Haz tu reserva de alimentación</p>
+            <p className="mt-3 max-w-lg text-sm leading-6 text-[#566B69]">Reserva de forma rápida y sencilla antes de subir al complejo.</p>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <Link href="/reserva" className="rounded-xl bg-[#0D9B91] px-6 py-3 text-center font-black text-white shadow-sm transition hover:bg-[#087A73]">Haz tu reserva</Link>
+              <Link href="/mis-reservas" className="rounded-xl border border-[#0B2D5B]/25 px-5 py-3 text-center text-sm font-bold transition hover:bg-[#EEF7F6]">Gestionar mis reservas</Link>
             </div>
+          </div>
 
-            <div className="p-8 md:p-12">
-              <p className="text-xs font-black tracking-[.18em] text-[#0D9B91]">RÁPIDO Y SENCILLO</p>
-              <h2 className="mt-2 text-2xl font-black">¿Cómo funciona?</h2>
-              <ol className="mt-6 space-y-5">
-                {[
-                  ['1', 'Identifícate', 'Ingresa tu RUT para acceder a tu ficha.'],
-                  ['2', 'Elige las fechas', 'Selecciona un período de hasta 7 días corridos.'],
-                  ['3', 'Selecciona tus menús', 'Escoge almuerzo y/o cena y confirma tu reserva.'],
-                ].map(([numero, titulo, detalle]) => (
-                  <li key={numero} className="flex gap-4">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#E2F5F2] font-black text-[#087A73]">{numero}</span>
-                    <span><strong className="block text-[#0B2D5B]">{titulo}</strong><span className="mt-1 block text-sm leading-6 text-[#566B69]">{detalle}</span></span>
-                  </li>
-                ))}
-              </ol>
-              <p className="mt-7 rounded-xl bg-[#F5F2E9] p-4 text-sm leading-6 text-[#56635E]">Durante la marcha blanca se mantendrá temporalmente la reserva en papel mientras incorporamos progresivamente el sistema online.</p>
+          <div className="flex min-h-56 items-center justify-center bg-gradient-to-br from-[#0B2D5B] to-[#0D756F] p-6 md:min-h-[330px]">
+            <div className="text-center">
+              <Image
+                src="/email/septiembre/alemzin-chef-email.png"
+                alt="ALEMZÍN, mascota de ALEMSI"
+                width={180}
+                height={187}
+                priority
+                className="mx-auto h-auto w-36 drop-shadow-xl md:w-44"
+              />
+              <p className="mt-2 text-sm font-bold text-white/90">Tu reserva, simple y anticipada</p>
             </div>
           </div>
         </section>
       ) : (
-        <section id="ingreso-alemsi" className="mx-auto mt-8 max-w-md rounded-[24px] border border-[#0D9B91]/20 bg-white p-7 shadow-xl md:p-9">
-          <p className="text-xs font-extrabold tracking-[.18em] text-[#0D9B91]">ACCESO ADMINISTRATIVO</p>
-          <h1 className="mt-2 text-2xl font-black text-[#0B2D5B]">Ingreso personal ALEMSI</h1>
+        <section id="ingreso-alemsi" className="mx-auto mt-7 max-w-md rounded-[22px] border border-[#0D9B91]/20 bg-white p-7 shadow-lg md:p-8">
+          <p className="text-xs font-extrabold tracking-[.16em] text-[#0D9B91]">ACCESO ADMINISTRATIVO</p>
+          <h1 className="mt-2 text-2xl font-black">Ingreso personal ALEMSI</h1>
           <p className="mt-2 text-sm text-[#566B69]">Acceso exclusivo para usuarios internos autorizados.</p>
           {q.error ? <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">Usuario o contraseña no válidos.</div> : null}
           {q.clave ? <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">Contraseña actualizada. Ya puedes ingresar.</div> : null}
-          <form action={loginAction} className="mt-6 space-y-4">
+          <form action={loginAction} className="mt-5 space-y-4">
             <label className="block text-sm font-bold text-[#203747]">Usuario
-              <input name="username" autoComplete="username" required className="mt-1 min-h-12 w-full rounded-xl border border-[#AFCBC6] bg-white px-3 outline-none transition focus:border-[#0D9B91] focus:ring-2 focus:ring-[#0D9B91]/20" />
+              <input name="username" autoComplete="username" required className="mt-1 min-h-11 w-full rounded-xl border border-[#AFCBC6] bg-white px-3 outline-none transition focus:border-[#0D9B91] focus:ring-2 focus:ring-[#0D9B91]/20" />
             </label>
             <label className="block text-sm font-bold text-[#203747]">Contraseña
-              <input name="password" type="password" autoComplete="current-password" required className="mt-1 min-h-12 w-full rounded-xl border border-[#AFCBC6] bg-white px-3 outline-none transition focus:border-[#0D9B91] focus:ring-2 focus:ring-[#0D9B91]/20" />
+              <input name="password" type="password" autoComplete="current-password" required className="mt-1 min-h-11 w-full rounded-xl border border-[#AFCBC6] bg-white px-3 outline-none transition focus:border-[#0D9B91] focus:ring-2 focus:ring-[#0D9B91]/20" />
             </label>
-            <button className="min-h-12 w-full rounded-xl bg-[#0D9B91] font-extrabold text-white shadow-sm transition hover:bg-[#087A73]">Ingresar</button>
+            <button className="min-h-11 w-full rounded-xl bg-[#0D9B91] font-extrabold text-white shadow-sm transition hover:bg-[#087A73]">Ingresar</button>
           </form>
           <Link href="/recuperar-clave" className="mt-4 inline-block text-sm font-bold text-[#0D9B91] hover:underline">¿Olvidaste tu contraseña?</Link>
         </section>
