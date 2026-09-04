@@ -11,7 +11,9 @@ export default async function Login({
   const mostrarPersonal = q.personal === '1' || Boolean(q.error) || Boolean(q.clave);
 
   return (
-    <main className="min-h-screen bg-[#EEF7F6] px-4 py-5 text-[#0B2D5B] md:px-8">
+    <main className={mostrarPersonal
+      ? 'min-h-screen overflow-y-auto bg-[#EEF7F6] px-4 py-5 text-[#0B2D5B] md:px-8'
+      : 'h-[100dvh] overflow-hidden bg-[#EEF7F6] px-4 py-3 text-[#0B2D5B] md:px-8 md:py-5'}>
       <header className="mx-auto flex max-w-5xl items-center justify-between gap-4">
         <div>
           <p className="text-sm font-black tracking-[.2em] text-[#0D9B91]">ALEMSI</p>
@@ -26,19 +28,19 @@ export default async function Login({
       </header>
 
       {!mostrarPersonal ? (
-        <section className="mx-auto mt-5 grid max-w-5xl overflow-hidden rounded-[24px] border border-[#0D9B91]/20 bg-white shadow-lg md:mt-7 md:grid-cols-[1.15fr_.85fr]">
-          <div className="flex flex-col justify-center p-7 md:p-10">
+        <section className="mx-auto mt-3 grid h-[calc(100dvh-70px)] max-h-[520px] max-w-5xl grid-rows-[minmax(0,1fr)_minmax(135px,.65fr)] overflow-hidden rounded-[24px] border border-[#0D9B91]/20 bg-white shadow-lg md:mt-5 md:h-[calc(100dvh-92px)] md:grid-cols-[1.15fr_.85fr] md:grid-rows-1">
+          <div className="flex min-h-0 flex-col justify-center p-5 sm:p-7 md:p-9">
             <span className="w-fit rounded-full bg-[#E2F5F2] px-3 py-1 text-[11px] font-black tracking-[.12em] text-[#087A73]">MARCHA BLANCA</span>
-            <h1 className="mt-4 text-3xl font-black leading-tight md:text-4xl">Ingreso comensal</h1>
-            <p className="mt-2 text-lg font-bold text-[#244A5A]">Haz tu reserva de alimentación</p>
-            <p className="mt-3 max-w-lg text-sm leading-6 text-[#566B69]">Reserva de forma rápida y sencilla antes de subir al complejo.</p>
-            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-              <Link href="/reserva" className="rounded-xl bg-[#0D9B91] px-6 py-3 text-center font-black text-white shadow-sm transition hover:bg-[#087A73]">Haz tu reserva</Link>
-              <Link href="/mis-reservas" className="rounded-xl border border-[#0B2D5B]/25 px-5 py-3 text-center text-sm font-bold transition hover:bg-[#EEF7F6]">Gestionar mis reservas</Link>
+            <h1 className="mt-3 text-2xl font-black leading-tight sm:text-3xl md:text-4xl">Ingreso comensal</h1>
+            <p className="mt-1 text-base font-bold text-[#244A5A] sm:text-lg">Haz tu reserva de alimentación</p>
+            <p className="mt-2 max-w-lg text-sm leading-5 text-[#566B69]">Reserva de forma rápida y sencilla antes de subir al complejo.</p>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row md:mt-5">
+              <Link href="/reserva" className="rounded-xl bg-[#0D9B91] px-6 py-2.5 text-center font-black text-white shadow-sm transition hover:bg-[#087A73]">Haz tu reserva</Link>
+              <Link href="/mis-reservas" className="rounded-xl border border-[#0B2D5B]/25 px-5 py-2.5 text-center text-sm font-bold transition hover:bg-[#EEF7F6]">Gestionar mis reservas</Link>
             </div>
           </div>
 
-          <div className="flex min-h-56 items-center justify-center bg-gradient-to-br from-[#0B2D5B] to-[#0D756F] p-6 md:min-h-[330px]">
+          <div className="flex min-h-0 items-center justify-center overflow-hidden bg-gradient-to-br from-[#0B2D5B] to-[#0D756F] p-3 md:p-6">
             <div className="text-center">
               <Image
                 src="/email/septiembre/alemzin-chef-email.png"
@@ -46,9 +48,9 @@ export default async function Login({
                 width={180}
                 height={187}
                 priority
-                className="mx-auto h-auto w-36 drop-shadow-xl md:w-44"
+                className="mx-auto h-auto w-24 drop-shadow-xl sm:w-28 md:w-44"
               />
-              <p className="mt-2 text-sm font-bold text-white/90">Tu reserva, simple y anticipada</p>
+              <p className="mt-1 hidden text-sm font-bold text-white/90 sm:block">Tu reserva, simple y anticipada</p>
             </div>
           </div>
         </section>
