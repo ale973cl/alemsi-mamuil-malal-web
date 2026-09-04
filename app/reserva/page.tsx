@@ -13,7 +13,7 @@ export default async function ReservaPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1DB954]">ALEMSI</p>
-            <h1 className="text-lg font-extrabold text-[#0E2A23] sm:text-xl">Alimentación · Mamuil Malal</h1>
+            <h1 className="text-lg font-extrabold text-[#0E2A23] sm:text-xl">Reservas · Mamuil Malal</h1>
           </div>
           {session?<ComensalNav backHref="/login" backLabel="Volver"/>:<span className="rounded-full border border-[#1DB954]/30 bg-[#1DB954]/10 px-3 py-1 text-xs font-semibold text-[#0E2A23]">Reserva segura</span>}
         </div>

@@ -149,7 +149,7 @@ export default function ReservaWizard({initialRut=''}:{initialRut?:string}) {
       <section className="overflow-hidden rounded-3xl border border-[#A6B0AA]/35 bg-[#FFFDF8] shadow-[0_18px_60px_rgba(14,42,35,0.08)]">
         <div className="border-b border-[#A6B0AA]/25 bg-[#0E2A23] px-5 py-5 text-white sm:px-8">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#1DB954]">Comensal</p>
-          <h2 className="mt-1 text-2xl font-extrabold">Reserva de alimentación</h2>
+          <h2 className="mt-1 text-2xl font-extrabold">Reserva de menú</h2>
           <p className="mt-2 max-w-2xl text-sm text-white/75">Mismo circuito operativo de ALEMSI: identificación, minuta publicada, selección por día y confirmación transaccional.</p>
         </div>
         <div className="p-5 sm:p-8">
@@ -172,7 +172,7 @@ export default function ReservaWizard({initialRut=''}:{initialRut?:string}) {
           {error && <div role="alert" className="mt-5 rounded-xl border border-red-300 bg-red-50 p-4 text-sm font-semibold text-red-800">{error}</div>}
         </div>
       </section>
-      <p className="mt-5 text-center text-xs text-[#6B7570]">ALEMSI · Servicios de Higiene y Desinfección</p>
+      <p className="mt-5 text-center text-xs text-[#6B7570]">ALEMSI · Casino Mamuil Malal</p>
     </div>
   );
 }

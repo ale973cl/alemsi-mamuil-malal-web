@@ -116,7 +116,7 @@ export default function ReservaWizardV2({initialRut=''}:{initialRut?:string}){
 
   return <div className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-8">
     <section className="overflow-hidden rounded-2xl border border-[#A6B0AA]/35 bg-[#FFFDF8] shadow-[0_12px_36px_rgba(14,42,35,0.08)] sm:rounded-3xl">
-      <div className="border-b border-[#A6B0AA]/25 bg-[#0E2A23] px-4 py-4 text-white sm:px-8 sm:py-5"><p className="text-xs font-bold uppercase tracking-[.2em] text-[#1DB954]">Comensal</p><h2 className="mt-1 text-xl font-extrabold sm:text-2xl">Reserva de alimentación</h2><p className="mt-1 text-sm text-white/75">Identificación, minuta publicada, selección por día y confirmación.</p></div>
+      <div className="border-b border-[#A6B0AA]/25 bg-[#0E2A23] px-4 py-4 text-white sm:px-8 sm:py-5"><p className="text-xs font-bold uppercase tracking-[.2em] text-[#1DB954]">Comensal</p><h2 className="mt-1 text-xl font-extrabold sm:text-2xl">Reserva de menú</h2><p className="mt-1 text-sm text-white/75">Identificación, minuta publicada, selección por día y confirmación.</p></div>
       <div className="p-4 sm:p-8">
         {etapa==='rut'&&<div className="mx-auto max-w-xl"><label className="block text-sm font-bold">RUT del comensal</label><div className="mt-2 flex flex-col gap-3 sm:flex-row"><input value={rut} onChange={e=>setRut(e.target.value)} onKeyDown={e=>e.key==='Enter'&&identificar()} placeholder="12.345.678-5" className="min-h-12 flex-1 rounded-xl border px-4 text-base"/><button disabled={pending||!rut.trim()} onClick={identificar} className="min-h-12 rounded-xl bg-[#1DB954] px-6 font-extrabold disabled:opacity-50">{pending?'Consultando…':'Continuar'}</button></div></div>}
 
@@ -141,6 +141,6 @@ export default function ReservaWizardV2({initialRut=''}:{initialRut?:string}){
         {error&&<div role="alert" className="mt-5 rounded-xl border border-red-300 bg-red-50 p-4 text-sm font-semibold text-red-800">{error}</div>}
       </div>
     </section>
-    <p className="mt-5 text-center text-xs text-[#6B7570]">ALEMSI · Servicios de Higiene y Desinfección</p>
+    <p className="mt-5 text-center text-xs text-[#6B7570]">ALEMSI · Casino Mamuil Malal</p>
   </div>;
 }

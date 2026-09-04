@@ -3,7 +3,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'ALEMSI · Mamuil Malal',
-  description: 'Sistema corporativo de alimentación Mamuil Malal',
+  description: 'Plataforma de reservas del Casino Mamuil Malal',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
