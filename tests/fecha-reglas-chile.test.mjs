@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { performance } from 'node:perf_hooks';
 import { epochHoraChile,fechaHoraVisibleChile,fechaVisible } from '../lib/fecha-hora.ts';
-import { anticipacionParaInstitucion,diasCorridosDelPeriodo,fechaDentroVentanaMaxima,reservaComercialHabilitada } from '../lib/reglas/reserva.ts';
+import { anticipacionParaInstitucion,diasCorridosDelPeriodo,fechaDentroVentanaMaxima,reservaComercialHabilitada,reservaInstitucionHabilitada } from '../lib/reglas/reserva.ts';
 
 test('presentación usa DD-MM-AAAA y hora Chile',()=>{
   assert.equal(fechaVisible('2026-08-30'),'30-08-2026');
@@ -27,6 +27,25 @@ test('horas exactas aplican 12h, 6h y 3h sin cambiar código',()=>{
     assert.equal(reservaComercialHabilitada('2026-08-30','Almuerzo',horas,new Date(limite.getTime()-1),'America/Santiago','HORAS_EXACTAS'),true);
     assert.equal(reservaComercialHabilitada('2026-08-30','Almuerzo',horas,limite,'America/Santiago','HORAS_EXACTAS'),false);
   }
+});
+
+test('modalidad día completo cierra a las 00:00 Chile del mismo día',()=>{
+  const reglas={anticipacion_reserva_horas:12,cancelacion_directa_horas:24,max_dias_consecutivos:7,excepciones_habilitadas:1,modalidad_cierre:'DIA_COMPLETO',anticipacion_otros_horas:12};
+  assert.equal(reservaInstitucionHabilitada('2026-09-05','Visitas',reglas,new Date('2026-09-05T03:59:59.999Z')),true);
+  assert.equal(reservaInstitucionHabilitada('2026-09-05','Visitas',reglas,new Date('2026-09-05T04:00:00.000Z')),false);
+});
+
+test('modalidad horas exactas respeta servicio e institución',()=>{
+  const reglas={anticipacion_reserva_horas:12,cancelacion_directa_horas:24,max_dias_consecutivos:7,excepciones_habilitadas:1,modalidad_cierre:'HORAS_EXACTAS',anticipacion_otros_horas:12};
+  assert.equal(reservaInstitucionHabilitada('2026-09-05','Visitas',reglas,new Date('2026-09-05T11:59:59.999Z'),'America/Santiago','Cena'),true);
+  assert.equal(reservaInstitucionHabilitada('2026-09-05','Visitas',reglas,new Date('2026-09-05T12:00:00.000Z'),'America/Santiago','Cena'),false);
+});
+
+test('cierre fijo del día anterior permite 14:59 y bloquea desde 15:00 Chile',()=>{
+  const reglas={anticipacion_reserva_horas:12,cancelacion_directa_horas:24,max_dias_consecutivos:7,excepciones_habilitadas:1,modalidad_cierre:'CORTE_DIA_ANTERIOR',anticipacion_otros_horas:12,hora_corte_dia_anterior:15};
+  assert.equal(reservaInstitucionHabilitada('2026-09-05','Visitas',reglas,new Date('2026-09-04T18:59:59.999Z'),'America/Santiago','Almuerzo'),true);
+  assert.equal(reservaInstitucionHabilitada('2026-09-05','Visitas',reglas,new Date('2026-09-04T19:00:00.000Z'),'America/Santiago','Almuerzo'),false);
+  assert.equal(reservaInstitucionHabilitada('2026-09-05','Visitas',reglas,new Date('2026-09-04T19:00:00.000Z'),'America/Santiago','Cena'),false);
 });
 
 test('Oficina y otros leen valores independientes de la misma regla',()=>{

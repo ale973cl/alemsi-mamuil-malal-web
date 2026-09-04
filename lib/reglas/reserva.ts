@@ -12,10 +12,11 @@ export type ReglasReserva = {
   cancelacion_directa_horas: number;
   max_dias_consecutivos: number;
   excepciones_habilitadas: number;
-  modalidad_cierre?: 'DIA_COMPLETO'|'HORAS_EXACTAS';
+  modalidad_cierre?: 'DIA_COMPLETO'|'HORAS_EXACTAS'|'CORTE_DIA_ANTERIOR';
   anticipacion_oficina_horas?: number;
   anticipacion_paso_horas?: number;
   anticipacion_otros_horas?: number;
+  hora_corte_dia_anterior?: number;
   ventana_maxima_dias?: number;
 };
 
@@ -35,6 +36,7 @@ export const REGLAS_RESERVA_DEFAULT: ReglasReserva = {
   anticipacion_oficina_horas:16,
   anticipacion_paso_horas:12,
   anticipacion_otros_horas:12,
+  hora_corte_dia_anterior:15,
   ventana_maxima_dias:31,
 };
 
@@ -158,11 +160,20 @@ export function evaluarCorteReserva(
   reglas:ReglasReserva,
   ahora=new Date(),
   timeZone='America/Santiago',
+  servicio='Almuerzo',
 ):EvaluacionCorteReserva{
   if(timeZone!==ZONA_CHILE) throw new Error(`Zona operacional no soportada: ${timeZone}`);
-  const horaCorte=horaCorteReservaParaInstitucion(reglas,institucion);
-  const fechaCorte=fechaAnteriorIso(fechaIso);
-  const corteEpoch=epochHoraChile(fechaCorte,horaCorte);
+  const modalidad=reglas.modalidad_cierre||'DIA_COMPLETO';
+  const anticipacion=horaCorteReservaParaInstitucion(reglas,institucion);
+  const horaCorte=modalidad==='CORTE_DIA_ANTERIOR'
+    ? horaCorteNormalizada(reglas.hora_corte_dia_anterior,15)
+    : modalidad==='DIA_COMPLETO'
+      ? 0
+      : HORAS_SERVICIO[servicio]??12;
+  const fechaCorte=modalidad==='CORTE_DIA_ANTERIOR'?fechaAnteriorIso(fechaIso):fechaIso;
+  const corteEpoch=modalidad==='HORAS_EXACTAS'
+    ? fechaHoraServicioEpoch(fechaIso,servicio,timeZone)-Math.max(0,anticipacion)*3_600_000
+    : epochHoraChile(fechaCorte,horaCorte);
   const habilitada=ahora.getTime()<corteEpoch;
   return {habilitada,horaCorte,fechaCorte,corteEpoch,motivo:habilitada?'ANTES_DEL_CORTE':'CORTE_VENCIDO'};
 }
@@ -173,8 +184,9 @@ export function reservaInstitucionHabilitada(
   reglas:ReglasReserva,
   ahora=new Date(),
   timeZone='America/Santiago',
+  servicio='Almuerzo',
 ):boolean{
-  return evaluarCorteReserva(fechaIso,institucion,reglas,ahora,timeZone).habilitada;
+  return evaluarCorteReserva(fechaIso,institucion,reglas,ahora,timeZone,servicio).habilitada;
 }
 
 // Funciones históricas conservadas para compatibilidad con rutas no migradas.
@@ -188,8 +200,7 @@ export function reservaComercialHabilitada(
 ): boolean {
   if(timeZone!==ZONA_CHILE) throw new Error(`Zona operacional no soportada: ${timeZone}`);
   if(modalidad==='HORAS_EXACTAS') return ahora.getTime()<fechaHoraServicioEpoch(fechaIso,_servicio,timeZone)-Math.max(0,Number(anticipacionHoras||0))*3_600_000;
-  const hora=horaCorteNormalizada(anticipacionHoras,12);
-  return ahora.getTime()<epochHoraChile(fechaAnteriorIso(fechaIso),hora);
+  return ahora.getTime()<epochHoraChile(fechaIso,0);
 }
 
 export function reservaPasoHabilitada(
@@ -199,8 +210,7 @@ export function reservaPasoHabilitada(
   timeZone='America/Santiago',
 ):boolean {
   if(timeZone!==ZONA_CHILE) throw new Error(`Zona operacional no soportada: ${timeZone}`);
-  const hora=horaCorteNormalizada(anticipacionHoras,12);
-  return ahora.getTime()<epochHoraChile(fechaAnteriorIso(fechaIso),hora);
+  return ahora.getTime()<epochHoraChile(fechaIso,0);
 }
 
 export function anticipacionParaInstitucion(reglas:ReglasReserva,institucion:string):number{

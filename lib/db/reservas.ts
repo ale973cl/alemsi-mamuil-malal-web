@@ -24,6 +24,7 @@ export async function obtenerReglasReserva(): Promise<ReglasReserva> {
     const rows = await query<Partial<ReglasReserva>>(
       `SELECT anticipacion_reserva_horas,cancelacion_directa_horas,max_dias_consecutivos,excepciones_habilitadas,
               modalidad_cierre,anticipacion_oficina_horas,anticipacion_paso_horas,anticipacion_otros_horas,ventana_maxima_dias
+              ,hora_corte_dia_anterior
          FROM configuracion_reservas
         WHERE id=1
         LIMIT 1`,
@@ -122,7 +123,9 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
   const esAlem = tipo === 'paso' || tipo === 'administrativos';
   const esCoordinador = tipo === 'coordinadores';
   const reglas = await obtenerReglasReserva();
-  const horaCorte=horaCorteReservaParaInstitucion(reglas,institucion);
+  const horaCorte=reglas.modalidad_cierre==='CORTE_DIA_ANTERIOR'
+    ? Number(reglas.hora_corte_dia_anterior??15)
+    : horaCorteReservaParaInstitucion(reglas,institucion);
   const fechas = [...new Set(input.elecciones.map((item) => item.fecha))].sort();
 
   if (!fechas.length) throw new Error('No hay fechas seleccionadas.');
@@ -170,8 +173,13 @@ export async function crearOActualizarReserva(input: CrearReservaInput) {
   for (const item of input.elecciones) {
     if(!fechaDentroVentanaMaxima(item.fecha,Number(reglas.ventana_maxima_dias),ahoraValidacion)) throw new Error(`${item.fecha} está fuera de la ventana máxima de reserva.`);
     const exception = Number(reglas.excepciones_habilitadas) === 1 && (await excepcionReservaActiva(rut, item.fecha));
-    if (!exception && !reservaInstitucionHabilitada(item.fecha,institucion,reglas,ahoraValidacion)) {
-      throw new Error(`La fecha ${item.fecha} ya está cerrada. El corte para ${institucion} es a las ${String(horaCorte).padStart(2,'0')}:00 del día anterior.`);
+    if (!exception && !reservaInstitucionHabilitada(item.fecha,institucion,reglas,ahoraValidacion,'America/Santiago',item.servicio)) {
+      const detalleCorte=reglas.modalidad_cierre==='CORTE_DIA_ANTERIOR'
+        ? `a las ${String(horaCorte).padStart(2,'0')}:00 del día anterior`
+        : reglas.modalidad_cierre==='HORAS_EXACTAS'
+          ? `con ${horaCorte} horas de anticipación`
+          : 'a las 00:00 del mismo día';
+      throw new Error(`La fecha ${item.fecha} ya está cerrada. El corte para ${institucion} se aplica ${detalleCorte}.`);
     }
     if (!(await validarPlatoPublicado(item))) {
       throw new Error(`El plato ${item.plato} ya no está disponible para ${item.fecha} · ${item.servicio}.`);

@@ -18,7 +18,11 @@ import { redirect } from 'next/navigation';
 
 export async function reglasAction(fd: FormData) {
   const u = await requireUser(['AdminCasino', 'AdminTotal']);
-  await setReglas({a:Number(fd.get('otros')||48),c:Number(fd.get('c')||24),m:Number(fd.get('m')||7),e:fd.get('e')?1:0,modalidad:fd.get('modalidad')==='HORAS_EXACTAS'?'HORAS_EXACTAS':'DIA_COMPLETO',oficina:Number(fd.get('oficina')||48),otros:Number(fd.get('otros')||48),ventana:Number(fd.get('ventana')||31)},u.username);
+  const modalidad=String(fd.get('modalidad')||'DIA_COMPLETO');
+  if(!['DIA_COMPLETO','HORAS_EXACTAS','CORTE_DIA_ANTERIOR'].includes(modalidad)) throw new Error('Modalidad de cierre inválida.');
+  const horaCorteDiaAnterior=Number(fd.get('hora_corte_dia_anterior')||15);
+  if(!Number.isInteger(horaCorteDiaAnterior)||horaCorteDiaAnterior<0||horaCorteDiaAnterior>23) throw new Error('La hora de corte debe estar entre 00 y 23.');
+  await setReglas({a:Number(fd.get('otros')||48),c:Number(fd.get('c')||24),m:Number(fd.get('m')||7),e:fd.get('e')?1:0,modalidad,oficina:Number(fd.get('oficina')||48),otros:Number(fd.get('otros')||48),ventana:Number(fd.get('ventana')||31),horaCorteDiaAnterior},u.username);
   revalidatePath('/admin-casino');
 }
 

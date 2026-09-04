@@ -64,7 +64,7 @@ export async function cargarMinutaDisponible(rutInput: string, inicio: string, f
       const tipoOpcion = String(row.tipo_opcion ?? '').trim().toUpperCase();
       if (!['OPCION 1', 'HIPOCALORICO'].includes(tipoOpcion)) return false;
     }
-    if (!reservaInstitucionHabilitada(row.fecha,perfil.persona.institucion,reglas,ahora)) return false;
+    if (!reservaInstitucionHabilitada(row.fecha,perfil.persona.institucion,reglas,ahora,'America/Santiago',row.servicio)) return false;
     return true;
   });
   return { ok: true as const, rows: filtradas, reglas };
