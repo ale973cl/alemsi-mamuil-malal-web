@@ -92,7 +92,7 @@ export default function ComprobanteUploader({ token }: { token: string }) {
 
   return (
     <div>
-      <h2 className="text-lg font-extrabold text-[#0E2A23]">Carga tu comprobante</h2>
+      <h2 className="text-lg font-extrabold text-[#0E2A23]">Carga tu comprobante de pago</h2>
       <p className="mt-1 text-sm text-[#6B7570]">PDF, JPG o PNG hasta 10 MB. Los pantallazos y fotos grandes se optimizan cuando el dispositivo lo permite.</p>
       <label className="mt-5 block cursor-pointer rounded-2xl border-2 border-dashed border-[#A6B0AA]/60 bg-white p-6 text-center hover:border-[#1DB954]">
         <input type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="sr-only" />
